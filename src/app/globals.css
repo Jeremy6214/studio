@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 11% 9%; /* #16181C - Page background (left panel in image) */
+    --foreground: 216 13% 90%; /* #E1E3E6 - Main text color */
+    
+    --card: 218 14% 13%; /* #1D2126 - Form panel background (right panel in image) */
+    --card-foreground: 216 13% 90%;
+
+    --popover: 218 14% 13%;
+    --popover-foreground: 216 13% 90%;
+
+    --primary: 207 82% 51%; /* #1E88E5 - Blue for buttons, active elements */
+    --primary-foreground: 210 40% 98%; /* #F7FAFC - Text on primary */
+
+    --secondary: 218 14% 20%; /* #2A3038 */
+    --secondary-foreground: 216 13% 85%; /* #D3D7DB */
+
+    --muted: 218 14% 25%; /* #353C46 */
+    --muted-foreground: 216 10% 65%; /* #9CA1A8 */
+
+    --accent: 207 82% 51%; /* Blue for hover/focus accents */
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 72% 51%; /* #E53935 */
+    --destructive-foreground: 0 0% 98%; /* #FAFAFA */
+
+    --border: 218 14% 22%; /* #303740 - General borders */
+    
+    /* Input specific variables */
+    --input-bg: 220 10% 8%; /* #131517 - Input field background */
+    --input-border: 218 14% 20%; /* #2A3038 - Input field border color */
+    /* --input variable below is used by shadcn for border color via border-input class */
+    --input: 218 14% 20%; 
+
+
+    --ring: 207 82% 51%; /* Focus ring */
+
+    --radius: 0.3rem; /* Slightly sharper corners */
+
+    /* Sidebar specific colors */
+    --sidebar-background: 218 14% 10%; /* #181B1F - Slightly darker than card for distinct sidebar */
+    --sidebar-foreground: 216 13% 90%; /* #E1E3E6 */
+    --sidebar-primary: 207 82% 51%; /* Active item background (using accent) */
+    --sidebar-primary-foreground: 210 40% 98%; /* Active item text */
+    --sidebar-accent: 218 14% 15%; /* Hover item background */
+    --sidebar-accent-foreground: 210 40% 98%; /* Hover item text */
+    --sidebar-border: 218 14% 12%; /* #1A1D21 */
+    --sidebar-ring: 207 82% 51%;
+
+    --chart-1: 207 82% 51%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 280 65% 60%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  /* Remove .dark class overrides as the base theme is now dark */
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
