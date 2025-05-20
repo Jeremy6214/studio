@@ -38,7 +38,9 @@ export const userNavItems: UserNavItem[] = [
         // Optional: Redirect or UI update after sign-out can be handled by onAuthStateChanged listener in useFirebaseAuth or AppLayout
         console.log("Usuario cerró sesión exitosamente.");
         // Consider redirecting to login page or home after logout
-        // window.location.href = '/login'; // Or use Next.js router if available in this context
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login'; // Or use Next.js router if available in this context
+        }
       } catch (error) {
         console.error("Error al cerrar sesión:", error);
         // Handle error, perhaps with a toast notification if this function is called from a UI component

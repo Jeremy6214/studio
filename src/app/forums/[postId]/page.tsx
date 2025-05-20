@@ -19,7 +19,74 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogHeader, DialogTitle as EditDialogTitle, DialogFooter as EditDialogFooter, DialogContent as EditDialogContent} from "@/components/ui/dialog"; // Alias for EditCommentDialog
+import { Dialog, DialogContent as EditDialogContent, DialogHeader as EditDialogHeader, DialogTitle as EditDialogTitle, DialogFooter as EditDialogFooter } from "@/components/ui/dialog";
+
+function EditCommentDialog({
+  open,
+  onOpenChange,
+  comment,
+  postId 
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  comment: ForumComment | null;
+  postId: string;
+}) {
+  const { toast } = useToast();
+  const [content, setContent] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (comment && open) {
+      setContent(comment.contenido);
+    }
+  }, [comment, open]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!comment || !content.trim() || !postId) {
+      toast({ title: "Error", description: "El contenido no puede estar vacío o falta información.", variant: "destructive" });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const commentRef = doc(db, "foros", postId, "comentarios", comment.id);
+      await updateDoc(commentRef, { contenido: content });
+      toast({ title: "Comentario Actualizado" });
+      onOpenChange(false); 
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "No se pudo actualizar el comentario.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <EditDialogContent>
+        <EditDialogHeader>
+          <EditDialogTitle>Editar Comentario</EditDialogTitle>
+        </EditDialogHeader>
+        <form onSubmit={handleSubmit}>
+          <Textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={5}
+            className="my-4"
+            disabled={isSubmitting}
+          />
+          <EditDialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancelar</Button>
+            <Button type="submit" disabled={isSubmitting || !content.trim()}>
+              {isSubmitting ? "Guardando..." : "Guardar Cambios"}
+            </Button>
+          </EditDialogFooter>
+        </form>
+      </EditDialogContent>
+    </Dialog>
+  );
+}
+
 
 function CommentCard({ 
   comment, 
@@ -29,7 +96,7 @@ function CommentCard({
   currentUserId,
   onEditComment,
   onDeleteCommentInitiate,
-  postId, // Pass postId for reaction handling
+  postId,
   nestingLevel = 0
 }: { 
   comment: ForumComment; 
@@ -112,74 +179,6 @@ function CommentCard({
 }
 
 
-function EditCommentDialog({
-  open,
-  onOpenChange,
-  comment,
-  postId 
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  comment: ForumComment | null;
-  postId: string;
-}) {
-  const { toast } = useToast();
-  const [content, setContent] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (comment && open) {
-      setContent(comment.contenido);
-    }
-  }, [comment, open]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!comment || !content.trim() || !postId) {
-      toast({ title: "Error", description: "El contenido no puede estar vacío o falta información.", variant: "destructive" });
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const commentRef = doc(db, "foros", postId, "comentarios", comment.id);
-      await updateDoc(commentRef, { contenido: content });
-      // UI will update due to onSnapshot listener for comments
-      toast({ title: "Comentario Actualizado" });
-      onOpenChange(false); // Close dialog
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message || "No se pudo actualizar el comentario.", variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <EditDialogContent>
-        <EditDialogHeader>
-          <EditDialogTitle>Editar Comentario</EditDialogTitle>
-        </EditDialogHeader>
-        <form onSubmit={handleSubmit}>
-          <Textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={5}
-            className="my-4"
-            disabled={isSubmitting}
-          />
-          <EditDialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancelar</Button>
-            <Button type="submit" disabled={isSubmitting || !content.trim()}>
-              {isSubmitting ? "Guardando..." : "Guardar Cambios"}
-            </Button>
-          </EditDialogFooter>
-        </form>
-      </EditDialogContent>
-    </Dialog>
-  );
-}
-
-
 export default function ForumPostPage() {
   const router = useRouter();
   const params = useParams();
@@ -204,7 +203,6 @@ export default function ForumPostPage() {
     return formatDistanceToNow(date, { addSuffix: true, locale: es });
   };
   
-  // Fetch post
   useEffect(() => {
     if (!postId) return;
     setIsLoading(true);
@@ -225,11 +223,10 @@ export default function ForumPostPage() {
     return () => unsubscribePost();
   }, [postId, router, toast]);
 
-  // Fetch comments
   useEffect(() => {
     if (!postId) return;
     const commentsRef = collection(db, "foros", postId, "comentarios");
-    const q = query(commentsRef, orderBy("fecha", "asc")); // Order by ascending for chronological display
+    const q = query(commentsRef, orderBy("fecha", "asc"));
     const unsubscribeComments = onSnapshot(q, (querySnapshot) => {
       const fetchedComments: ForumComment[] = [];
       querySnapshot.forEach((doc) => {
@@ -246,7 +243,7 @@ export default function ForumPostPage() {
   const handleReaction = async (
     docId: string,
     reactionType: 'likes' | 'gracias',
-    isPost: boolean // true if reacting to post, false if to comment
+    isPost: boolean
   ) => {
     if (!userId) {
       toast({ title: "Error", description: "Debes iniciar sesión para reaccionar.", variant: "destructive" });
@@ -256,24 +253,25 @@ export default function ForumPostPage() {
     const docRef = doc(db, collectionPath, docId);
   
     try {
-      const docSnap = await getDoc(docRef);
-      if (!docSnap.exists()) {
-        toast({ title: "Error", description: "El documento no existe.", variant: "destructive" });
-        return;
-      }
-  
-      const data = docSnap.data();
-      const currentReactions: string[] = data?.[reactionType] || [];
-      const hasReacted = currentReactions.includes(userId);
-  
-      if (hasReacted) {
-        await updateDoc(docRef, { [reactionType]: arrayRemove(userId) });
-      } else {
-        await updateDoc(docRef, { [reactionType]: arrayUnion(userId) });
-      }
+      await runTransaction(db, async (transaction) => {
+        const docSnap = await transaction.get(docRef);
+        if (!docSnap.exists()) {
+          throw new Error("El documento no existe.");
+        }
+    
+        const data = docSnap.data();
+        const currentReactions: string[] = data?.[reactionType] || [];
+        const hasReacted = currentReactions.includes(userId);
+    
+        if (hasReacted) {
+          transaction.update(docRef, { [reactionType]: arrayRemove(userId) });
+        } else {
+          transaction.update(docRef, { [reactionType]: arrayUnion(userId) });
+        }
+      });
       // UI will update due to onSnapshot listeners
     } catch (error: any) {
-      console.error(`Error ${hasReacted ? 'quitando' : 'dando'} ${reactionType}:`, error);
+      console.error(`Error procesando reacción ${reactionType}:`, error);
       toast({ title: "Error", description: `No se pudo procesar tu ${reactionType}. ${error.message}`, variant: "destructive" });
     }
   };
@@ -308,7 +306,7 @@ export default function ForumPostPage() {
         userProfile = userDocSnap.data() as UserProfile;
       }
 
-      const commentData = {
+      const commentData: Omit<ForumComment, 'id' | 'replies'> = {
         contenido: newComment,
         autorId: userId,
         autorNombre: userProfile?.nombre || user.displayName || "Usuario Anónimo",
@@ -320,11 +318,8 @@ export default function ForumPostPage() {
       };
       await addDoc(collection(db, "foros", postId, "comentarios"), commentData);
       
-      // Increment commentsCount on the post
       const postRef = doc(db, "foros", postId);
-      await updateDoc(postRef, {
-        commentsCount: increment(1)
-      });
+      await updateDoc(postRef, { commentsCount: increment(1) });
 
       setNewComment('');
       setReplyingTo(null);
@@ -351,27 +346,23 @@ export default function ForumPostPage() {
     try {
       await deleteDoc(doc(db, "foros", postId, "comentarios", commentToDelete.id));
       
-      // Decrement commentsCount on the post
       const postRef = doc(db, "foros", postId);
-      await updateDoc(postRef, {
-        commentsCount: increment(-1)
-      });
+      await updateDoc(postRef, { commentsCount: increment(-1) });
       
       toast({ title: "Comentario Eliminado" });
     } catch (error: any) {
       console.error("Error deleting comment:", error);
       toast({ title: "Error", description: "No se pudo eliminar el comentario. " + error.message, variant: "destructive" });
     }
-    setCommentToDelete(null); // Close the confirmation dialog
+    setCommentToDelete(null); 
   };
 
-  // Helper to build comment tree for rendering
   const buildCommentTree = useCallback((commentsList: ForumComment[]): ForumComment[] => {
     const commentsMap = new Map<string, ForumComment>();
     const rootComments: ForumComment[] = [];
 
     commentsList.forEach(comment => {
-      commentsMap.set(comment.id, { ...comment, replies: [] }); // Initialize replies array
+      commentsMap.set(comment.id, { ...comment, replies: [] });
     });
 
     commentsList.forEach(comment => {
@@ -379,14 +370,7 @@ export default function ForumPostPage() {
       if (currentComment) {
         if (comment.respuestaA && commentsMap.has(comment.respuestaA)) {
           const parentComment = commentsMap.get(comment.respuestaA);
-          if (parentComment) { // Check if parentComment is found
-            parentComment.replies = parentComment.replies || []; // Ensure replies array exists
-            parentComment.replies.push(currentComment);
-          } else {
-            // This case handles replies to comments that might have been deleted or are not yet loaded
-            // Or, if it's a reply to a comment that itself is a reply (deeper nesting not fully supported visually here)
-             rootComments.push(currentComment); // Add as root if parent is missing for now
-          }
+          parentComment?.replies?.push(currentComment);
         } else {
           rootComments.push(currentComment);
         }
@@ -400,15 +384,15 @@ export default function ForumPostPage() {
   if (isLoading || authLoading) {
     return (
       <div className="max-w-4xl mx-auto space-y-8 p-4">
-        <Skeleton className="h-8 w-32 mb-6" /> {/* Back button */}
+        <Skeleton className="h-8 w-32 mb-6" />
         <Card className="shadow-lg">
           <CardHeader>
-            <Skeleton className="h-10 w-3/4 mb-2" /> {/* Title */}
+            <Skeleton className="h-10 w-3/4 mb-2" />
             <div className="flex items-center space-x-2 text-sm text-muted-foreground mt-2">
-              <Skeleton className="h-8 w-8 rounded-full" /> {/* Avatar */}
-              <Skeleton className="h-4 w-1/4" /> {/* Author */}
-              <Skeleton className="h-4 w-1/6" /> {/* Date */}
-              <Skeleton className="h-4 w-1/5" /> {/* Category */}
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <Skeleton className="h-4 w-1/4" /> 
+              <Skeleton className="h-4 w-1/6" /> 
+              <Skeleton className="h-4 w-1/5" /> 
             </div>
           </CardHeader>
           <CardContent>
@@ -417,12 +401,12 @@ export default function ForumPostPage() {
             <Skeleton className="h-5 w-3/4 mb-1" />
           </CardContent>
           <CardFooter className="flex items-center justify-start space-x-4">
-            <Skeleton className="h-8 w-24" /> {/* Like button */}
-            <Skeleton className="h-8 w-24" /> {/* Comment count */}
+            <Skeleton className="h-8 w-24" /> 
+            <Skeleton className="h-8 w-24" /> 
           </CardFooter>
         </Card>
         <Separator />
-        <Skeleton className="h-8 w-1/3 mb-4" /> {/* Comments title */}
+        <Skeleton className="h-8 w-1/3 mb-4" />
         <div className="space-y-3">
           {[1,2].map(i => <Skeleton key={i} className="h-24 w-full rounded-md" />)}
         </div>
@@ -488,7 +472,7 @@ export default function ForumPostPage() {
               onThankComment={handleThankComment}
               currentUserId={userId}
               onEditComment={handleEditComment}
-              onDeleteCommentInitiate={setCommentToDelete} // Triggers AlertDialog
+              onDeleteCommentInitiate={setCommentToDelete}
               postId={postId}
             />
           ))

@@ -8,7 +8,7 @@ export interface UserProfile {
   fotoPerfil?: string;
   tema?: 'light' | 'dark' | 'system';
   idioma?: 'es' | 'en';
-  // configPreferencias?: Record<string, any>; // Opcional
+  // configPreferencias?: Record<string, any>; // Example for additional settings
 }
 
 export interface ForumPost {
@@ -16,24 +16,24 @@ export interface ForumPost {
   titulo: string;
   contenido: string;
   autorId: string;
-  autorNombre?: string; // Para mostrar rápidamente sin otra consulta
-  autorFoto?: string; // Para mostrar rápidamente sin otra consulta
+  autorNombre?: string; // Denormalized for easier display
+  autorFoto?: string;   // Denormalized
   fechaCreacion: Timestamp;
-  categoria: "profesores" | "estudiantes" | "recursos";
-  likes: string[]; // Array de UIDs
-  gracias: string[]; // Array de UIDs
-  commentsCount?: number; // Denormalized count
+  categoria: 'profesores' | 'estudiantes' | 'recursos'; // Ensure these match categories in your UI
+  likes: string[]; // Array of user UIDs who liked the post
+  gracias: string[]; // Array of user UIDs who thanked the post
+  commentsCount: number;
 }
 
 export interface ForumComment {
   id: string;
   contenido: string;
   autorId: string;
-  autorNombre?: string;
-  autorFoto?: string;
+  autorNombre?: string; // Denormalized
+  autorFoto?: string;   // Denormalized
   fecha: Timestamp;
-  respuestaA?: string | null; // ID del comentario padre
-  likes: string[]; // Array de UIDs
-  gracias: string[]; // Array de UIDs
-  replies?: ForumComment[]; // Para anidamiento en UI, se carga por separado o se construye
+  respuestaA?: string | null; // ID of the parent comment, if it's a reply
+  likes: string[]; // Array of user UIDs
+  gracias: string[]; // Array of user UIDs
+  replies?: ForumComment[]; // Client-side property for building comment tree
 }

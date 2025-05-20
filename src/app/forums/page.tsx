@@ -19,7 +19,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, getDoc, increment } from "firebase/firestore";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import type { ForumPost, UserProfile } from "@/types/firestore";
 import { formatDistanceToNow } from 'date-fns';
@@ -29,15 +29,13 @@ import { es } from 'date-fns/locale';
 function CreatePostDialog({ 
   open, 
   onOpenChange, 
-  onPostCreated,
   editingPost,
-  onPostUpdated
+  onPostUpdatedOrCreated
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
-  onPostCreated: (post: ForumPost) => void; // Not strictly needed if using onSnapshot
   editingPost: ForumPost | null;
-  onPostUpdated: (post: ForumPost) => void; // Not strictly needed if using onSnapshot
+  onPostUpdatedOrCreated: () => void; 
 }) {
   const { toast } = useToast();
   const { user, userId } = useFirebaseAuth();
@@ -51,7 +49,7 @@ function CreatePostDialog({
       setTitle(editingPost.titulo);
       setContent(editingPost.contenido);
       setCategory(editingPost.categoria);
-    } else if (!open && !editingPost) { // Reset only if not editing
+    } else if (!open) { 
       resetForm();
     }
   }, [editingPost, open]);
@@ -93,13 +91,11 @@ function CreatePostDialog({
           titulo: title,
           contenido: content,
           categoria: category as ForumPost["category"],
-          // autorId, fechaCreacion, likes, gracias, commentsCount remain unchanged on edit through this simple modal
         };
         await updateDoc(postRef, updatedPostData);
-        // onPostUpdated will be handled by onSnapshot
         toast({ title: "Publicación Actualizada", description: `La publicación "${title}" ha sido actualizada.` });
       } else {
-        const newPostData = {
+        const newPostData: Omit<ForumPost, 'id'> = { // Omit 'id' as Firestore generates it
           titulo: title,
           contenido: content,
           categoria: category as ForumPost["category"],
@@ -112,11 +108,11 @@ function CreatePostDialog({
           commentsCount: 0,
         };
         await addDoc(collection(db, "foros"), newPostData);
-        // onPostCreated will be handled by onSnapshot
         toast({ title: "Publicación Creada", description: `La publicación "${title}" ha sido creada.` });
       }
-      onOpenChange(false); // Close dialog
-      if (!editingPost) resetForm(); // Reset form only if creating new
+      onPostUpdatedOrCreated(); // Callback to refresh or update UI
+      onOpenChange(false); 
+      resetForm();
     } catch (error: any) {
       console.error("Error creating/updating post:", error);
       toast({ title: "Error", description: error.message || "No se pudo crear/actualizar la publicación.", variant: "destructive" });
@@ -126,7 +122,7 @@ function CreatePostDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) { resetForm(); } onOpenChange(isOpen); }}>
+    <Dialog open={open} onOpenChange={(isOpen) => { onOpenChange(isOpen); if (!isOpen) resetForm(); }}>
       <DialogContent className="sm:max-w-lg bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-primary-foreground">{editingPost ? "Editar Publicación" : "Crear Nueva Publicación"}</DialogTitle>
@@ -178,7 +174,7 @@ function CreatePostDialog({
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => { onOpenChange(false); if (!editingPost) resetForm(); }} disabled={isSubmitting}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => { onOpenChange(false); resetForm(); }} disabled={isSubmitting}>Cancelar</Button>
             <Button type="submit" disabled={isSubmitting || !title.trim() || !content.trim() || !category}>
               {isSubmitting ? (editingPost ? "Actualizando..." : "Publicando...") : (editingPost ? "Actualizar Publicación" : "Publicar")}
             </Button>
@@ -214,17 +210,8 @@ export default function ForumsPage() {
       toast({ title: "Error", description: "No se pudieron cargar las publicaciones.", variant: "destructive" });
       setIsLoadingPosts(false);
     });
-    return () => unsubscribe(); // Cleanup listener on component unmount
+    return () => unsubscribe();
   }, [toast]);
-
-  const handlePostCreated = (newPost: ForumPost) => {
-    // No longer needed here if using onSnapshot, as it will update 'posts' state automatically
-  };
-
-  const handlePostUpdated = (updatedPost: ForumPost) => {
-    // No longer needed here if using onSnapshot
-    setEditingPost(null);
-  };
   
   const handleEditPost = (post: ForumPost) => {
     setEditingPost(post);
@@ -238,9 +225,11 @@ export default function ForumsPage() {
       return;
     }
     try {
+      // Note: Deleting subcollections (comments) needs a more complex approach (e.g., Cloud Function or client-side batch delete)
+      // For simplicity, we only delete the post document here.
       await deleteDoc(doc(db, "foros", postToDelete.id));
-      // Posts state will update via onSnapshot
       toast({ title: "Publicación Eliminada", description: `La publicación "${postToDelete.titulo}" ha sido eliminada.` });
+      // Posts state will update via onSnapshot
     } catch (error: any) {
       console.error("Error deleting post:", error);
       toast({ title: "Error", description: "No se pudo eliminar la publicación. " + error.message, variant: "destructive" });
@@ -268,13 +257,13 @@ export default function ForumsPage() {
           </div>
           <Skeleton className="h-12 w-56 rounded-md" />
         </header>
-        <Tabs defaultValue="preguntas-profesores" className="w-full">
+        <Tabs defaultValue="profesores" className="w-full">
           <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10 bg-muted">
             <Skeleton className="h-8 w-full rounded-sm" />
             <Skeleton className="h-8 w-full rounded-sm" />
             <Skeleton className="h-8 w-full rounded-sm" />
           </TabsList>
-          <TabsContent value="preguntas-profesores" className="mt-6">
+          <TabsContent value="profesores" className="mt-6">
             <div className="space-y-4">
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-36 w-full rounded-lg" />)}
             </div>
@@ -335,9 +324,8 @@ export default function ForumsPage() {
       <CreatePostDialog 
         open={isCreatePostModalOpen} 
         onOpenChange={setIsCreatePostModalOpen} 
-        onPostCreated={handlePostCreated} // This prop might be less critical with onSnapshot
         editingPost={editingPost}
-        onPostUpdated={handlePostUpdated} // This prop might be less critical with onSnapshot
+        onPostUpdatedOrCreated={() => { /* onSnapshot handles UI update */ }}
       />
 
       {postToDelete && (
@@ -347,7 +335,7 @@ export default function ForumsPage() {
               <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
               <AlertDialogDescription>
                 Esta acción no se puede deshacer. Esto eliminará permanentemente la publicación "{postToDelete.titulo}".
-                Todos los comentarios asociados también serán eliminados (funcionalidad de eliminación de subcolección pendiente).
+                Los comentarios asociados no se eliminarán automáticamente con esta acción.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -388,7 +376,7 @@ function ForumCategoryContent({
                 </Link>
                 <CardDescription className="flex items-center gap-2 text-xs mt-1">
                   <Avatar className="h-5 w-5">
-                    <AvatarImage src={post.autorFoto || `https://placehold.co/40x40.png?text=${post.autorNombre?.substring(0,1) || 'A'}`} data-ai-hint="user avatar small" />
+                    <AvatarImage src={post.autorFoto || `https://placehold.co/40x40.png?text=${post.autorNombre?.substring(0,1) || 'A'}`} data-ai-hint="user avatar small"/>
                     <AvatarFallback>{post.autorNombre?.substring(0,1) || "A"}</AvatarFallback>
                   </Avatar>
                   <span>{post.autorNombre || "Usuario Anónimo"}</span>
@@ -425,7 +413,7 @@ function ForumCategoryContent({
       )) : (
         <Card className="shadow-sm bg-card">
           <CardContent className="p-6 text-center text-muted-foreground">
-            <Image src="https://placehold.co/300x200.png" alt="Sin publicaciones" width={150} height={100} className="mx-auto mb-4 rounded" data-ai-hint="empty state dark" />
+            <Image src="https://placehold.co/300x200.png" alt="Sin publicaciones" width={150} height={100} className="mx-auto mb-4 rounded" data-ai-hint="empty state dark"/>
             Aún no hay publicaciones en {categoryName}. ¡Sé el primero en iniciar una discusión!
           </CardContent>
         </Card>

@@ -19,12 +19,12 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User as UserIcon, Mail, Lock, Image as ImageIcon, Palette, Languages, Save } from "lucide-react"; // Renamed User to UserIcon
+import { User as UserIcon, Mail, Lock, Image as ImageIcon, Palette, Languages, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { db, auth } from "@/lib/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { updateProfile, User as FirebaseUser, sendPasswordResetEmail } from "firebase/auth"; // Renamed User to FirebaseUser
+import { updateProfile, User as FirebaseUser, sendPasswordResetEmail } from "firebase/auth";
 import type { UserProfile } from "@/types/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -50,7 +50,7 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsFormSchema),
     defaultValues: async () => {
-      setIsLoading(true); // Start loading
+      setIsLoading(true);
       try {
         const userDocRef = doc(db, "usuarios", currentUser.uid);
         const userDocSnap = await getDoc(userDocRef);
@@ -68,29 +68,27 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
       } catch (error) {
         console.error("Error fetching user defaults:", error);
         toast({ title: "Error", description: "No se pudieron cargar tus datos.", variant: "destructive" });
-        return { // Fallback defaults
+        return { 
           nombre: currentUser.displayName || "",
           fotoPerfil: currentUser.photoURL || "",
           idioma: "es",
           tema: "system",
         };
       } finally {
-        setIsLoading(false); // End loading
+        setIsLoading(false);
       }
     },
   });
   
-  // Trigger theme change on initial load if 'system' is set or from localStorage
   useEffect(() => {
     const storedThemeSetting = localStorage.getItem("themeSetting") as SettingsFormValues["tema"] || form.getValues("tema");
-    handleThemeChange(storedThemeSetting, false); // Apply without toast on load
+    handleThemeChange(storedThemeSetting, false); 
 
     const storedLanguage = localStorage.getItem("language") as SettingsFormValues["idioma"] || form.getValues("idioma");
     if (storedLanguage) {
         form.setValue("idioma", storedLanguage);
-        // Potentially trigger i18n update here if a full system is in place
     }
-  }, []); // Empty dependency array: run once on mount
+  }, []);
 
 
   const handleChangePassword = async () => {
@@ -114,19 +112,19 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
   };
   
   const handleThemeChange = (themeValue: "system" | "light" | "dark", showToast: boolean = true) => {
-    localStorage.setItem("themeSetting", themeValue); // Store user's direct choice
+    localStorage.setItem("themeSetting", themeValue); 
     let appliedTheme: 'light' | 'dark';
 
     if (themeValue === "light") {
       document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light"); // Store actual theme being applied
+      localStorage.setItem("theme", "light"); 
       appliedTheme = 'light';
     } else if (themeValue === "dark") {
       document.documentElement.classList.add("dark");
       localStorage.setItem("theme", "dark");
       appliedTheme = 'dark';
-    } else { // System preference
-      localStorage.removeItem("theme"); // Let CSS media query take over
+    } else { 
+      localStorage.removeItem("theme"); 
       if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
         document.documentElement.classList.add("dark");
         appliedTheme = 'dark';
@@ -149,34 +147,34 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
     });
 
     try {
-      // Update Firebase Auth profile
-      if (auth.currentUser) { // Ensure auth.currentUser is not null
+      if (auth.currentUser) {
         await updateProfile(auth.currentUser, {
           displayName: data.nombre,
-          photoURL: data.fotoPerfil || null, // Send null if empty to potentially clear it in Auth
+          photoURL: data.fotoPerfil || null, 
         });
       } else {
         throw new Error("Usuario no autenticado.");
       }
 
-      // Update Firestore document
       const userDocRef = doc(db, "usuarios", currentUser.uid);
-      const userProfileData: UserProfile = { // Ensure all required fields of UserProfile are present
+      const userProfileData: UserProfile = { 
         uid: currentUser.uid,
         nombre: data.nombre,
-        correo: currentUser.email || "", // Email from Auth, not form
+        correo: currentUser.email || "", 
         fotoPerfil: data.fotoPerfil || "",
         idioma: data.idioma,
         tema: data.tema,
       };
       await setDoc(userDocRef, userProfileData, { merge: true });
       
-      setInitialPhotoURL(data.fotoPerfil || ""); // Update avatar preview on successful save
+      setInitialPhotoURL(data.fotoPerfil || ""); 
 
-      // Apply theme and language preference
-      handleThemeChange(data.tema);
+      handleThemeChange(data.tema, false); // Apply theme without toast as it's part of save
       localStorage.setItem("language", data.idioma);
-      // Here you would typically trigger a reload or context update for i18n if it's a full system
+      // Trigger language change in AppLayout
+      if (window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('languageChange', { detail: data.idioma }));
+      }
       
       toast({
         title: "Configuración Guardada",
@@ -194,7 +192,7 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
     }
   }
 
-  if (form.formState.isLoading || isLoading) { // Check form loading state and explicit isLoading
+  if (form.formState.isLoading || isLoading) { 
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
@@ -338,8 +336,10 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
                 onValueChange={(value) => {
                   field.onChange(value);
                   localStorage.setItem("language", value);
-                  // Add logic to re-render app with new language if using a full i18n system
-                  toast({ title: `Idioma cambiado a ${value === 'es' ? 'Español' : 'English'} (simulado)` });
+                   if (window.dispatchEvent) {
+                    window.dispatchEvent(new CustomEvent('languageChange', { detail: value }));
+                  }
+                  toast({ title: `Idioma cambiado a ${value === 'es' ? 'Español' : 'English'}` });
                 }}
                 value={field.value}
               >
@@ -354,7 +354,7 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
                 </SelectContent>
               </Select>
               <FormDescription>
-                Esto cambiará el idioma de la interfaz de usuario (simulado para algunos elementos).
+                Esto cambiará el idioma de la interfaz de usuario.
               </FormDescription>
               <FormMessage />
             </FormItem>

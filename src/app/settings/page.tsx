@@ -4,7 +4,7 @@ import { SettingsForm } from "@/components/auth/settings-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Settings as SettingsIcon } from "lucide-react";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
-import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
+import { Skeleton } from "@/components/ui/skeleton"; 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 

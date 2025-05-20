@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth } from '@/lib/firebase'; // Ensure this path is correct
 
 export interface AuthState {
   user: User | null;
@@ -23,6 +23,7 @@ export function useFirebaseAuth(): AuthState {
       setLoading(false);
     });
 
+    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
