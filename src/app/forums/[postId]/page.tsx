@@ -12,7 +12,7 @@ import { ArrowLeft, ThumbsUp, Send, MessageSquare, Edit, Trash2, Heart } from 'l
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, Timestamp, updateDoc, arrayUnion, arrayRemove, deleteDoc, runTransaction, increment, where } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, Timestamp, updateDoc, arrayUnion, arrayRemove, deleteDoc, runTransaction, increment, where, getDocs } from 'firebase/firestore';
 import { useFirebaseAuth } from '@/hooks/useFirebaseAuth';
 import type { ForumPost, ForumComment, UserProfile } from '@/types/firestore';
 import { formatDistanceToNow } from 'date-fns';
@@ -94,6 +94,7 @@ function CommentCard({
   onLikeComment, 
   onThankComment, 
   currentUserId,
+  currentUserProfile,
   onEditComment,
   onDeleteCommentInitiate,
   postId,
@@ -104,6 +105,7 @@ function CommentCard({
   onLikeComment: (commentId: string) => void;
   onThankComment: (commentId: string) => void;
   currentUserId: string | null;
+  currentUserProfile: UserProfile | null;
   onEditComment: (comment: ForumComment) => void;
   onDeleteCommentInitiate: (comment: ForumComment) => void;
   postId: string;
@@ -145,11 +147,13 @@ function CommentCard({
         <Button variant="ghost" size="sm" onClick={() => onReply(comment.id, comment.autorNombre || "Comentario")} className="text-muted-foreground hover:text-primary disabled:opacity-50" disabled={!currentUserId}>
           <MessageSquare className="h-4 w-4 mr-1" /> Responder
         </Button>
-        {currentUserId === comment.autorId && (
+        {(currentUserId === comment.autorId || currentUserProfile?.isAdmin) && (
           <>
-            <Button variant="ghost" size="sm" onClick={() => onEditComment(comment)} className="text-muted-foreground hover:text-primary">
-              <Edit className="h-4 w-4 mr-1" /> Editar
-            </Button>
+            {currentUserId === comment.autorId && ( // Permitir editar solo al autor
+              <Button variant="ghost" size="sm" onClick={() => onEditComment(comment)} className="text-muted-foreground hover:text-primary">
+                <Edit className="h-4 w-4 mr-1" /> Editar
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={() => onDeleteCommentInitiate(comment)} className="text-destructive hover:text-destructive/80">
               <Trash2 className="h-4 w-4 mr-1" /> Eliminar
             </Button>
@@ -166,6 +170,7 @@ function CommentCard({
               onLikeComment={onLikeComment}
               onThankComment={onThankComment}
               currentUserId={currentUserId}
+              currentUserProfile={currentUserProfile}
               onEditComment={onEditComment}
               onDeleteCommentInitiate={onDeleteCommentInitiate}
               postId={postId}
@@ -196,6 +201,23 @@ export default function ForumPostPage() {
   const [commentToEdit, setCommentToEdit] = useState<ForumComment | null>(null);
   const [isEditCommentModalOpen, setIsEditCommentModalOpen] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<ForumComment | null>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    if (userId) {
+      const userDocRef = doc(db, "usuarios", userId);
+      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setCurrentUserProfile(docSnap.data() as UserProfile);
+        } else {
+          setCurrentUserProfile(null);
+        }
+      });
+      return () => unsubscribe();
+    } else {
+      setCurrentUserProfile(null);
+    }
+  }, [userId]);
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return "Fecha desconocida";
@@ -272,7 +294,7 @@ export default function ForumPostPage() {
       // UI will update due to onSnapshot listeners
     } catch (error: any) {
       console.error(`Error procesando reacción ${reactionType}:`, error);
-      toast({ title: "Error", description: `No se pudo procesar tu ${reactionType}. ${error.message}`, variant: "destructive" });
+      toast({ title: "Error", description: `No se pudo procesar tu ${reactionType === 'likes' ? 'Me gusta' : 'Gracias'}. ${error.message}`, variant: "destructive" });
     }
   };
   
@@ -299,18 +321,18 @@ export default function ForumPostPage() {
     setIsSubmittingComment(true);
 
     try {
-      let userProfile: UserProfile | null = null;
+      let userProfileData: UserProfile | null = null;
       const userDocRef = doc(db, "usuarios", userId);
       const userDocSnap = await getDoc(userDocRef);
       if (userDocSnap.exists()) {
-        userProfile = userDocSnap.data() as UserProfile;
+        userProfileData = userDocSnap.data() as UserProfile;
       }
 
       const commentData: Omit<ForumComment, 'id' | 'replies'> = {
         contenido: newComment,
         autorId: userId,
-        autorNombre: userProfile?.nombre || user.displayName || "Usuario Anónimo",
-        autorFoto: userProfile?.fotoPerfil || user.photoURL || "",
+        autorNombre: userProfileData?.nombre || user.displayName || "Usuario Anónimo",
+        autorFoto: userProfileData?.fotoPerfil || user.photoURL || "",
         fecha: serverTimestamp(),
         respuestaA: replyingTo ? replyingTo.id : null,
         likes: [],
@@ -333,17 +355,43 @@ export default function ForumPostPage() {
   };
   
   const handleEditComment = (comment: ForumComment) => {
-    setCommentToEdit(comment);
-    setIsEditCommentModalOpen(true);
+     if (userId === comment.autorId) { // Solo el autor puede editar
+      setCommentToEdit(comment);
+      setIsEditCommentModalOpen(true);
+    } else {
+      toast({ title: "Error", description: "No tienes permiso para editar este comentario.", variant: "destructive" });
+    }
   };
 
+  const handleDeleteCommentInitiate = (comment: ForumComment) => {
+    if (userId === comment.autorId || currentUserProfile?.isAdmin) {
+      setCommentToDelete(comment);
+    } else {
+      toast({ title: "Error", description: "No tienes permiso para eliminar este comentario.", variant: "destructive" });
+    }
+  }
+
   const handleDeleteComment = async () => {
-    if (!commentToDelete || !userId || commentToDelete.autorId !== userId || !postId) {
-      toast({ title: "Error", description: "No tienes permiso para eliminar este comentario o falta información.", variant: "destructive" });
+    if (!commentToDelete) return;
+    if (userId !== commentToDelete.autorId && !currentUserProfile?.isAdmin) {
+      toast({ title: "Error", description: "No tienes permiso para eliminar este comentario.", variant: "destructive" });
       setCommentToDelete(null);
       return;
     }
+
     try {
+      // Check for replies and delete them first (or handle as per app logic, e.g., anonymize)
+      const repliesQuery = query(collection(db, "foros", postId, "comentarios"), where("respuestaA", "==", commentToDelete.id));
+      const repliesSnapshot = await getDocs(repliesQuery);
+      const batch = []; // Not using Firestore batch for simplicity here, but good for production
+      for (const replyDoc of repliesSnapshot.docs) {
+          batch.push(deleteDoc(doc(db, "foros", postId, "comentarios", replyDoc.id)));
+          // Decrement post's comment count for each deleted reply
+          batch.push(updateDoc(doc(db, "foros", postId), { commentsCount: increment(-1) }));
+      }
+      await Promise.all(batch);
+
+
       await deleteDoc(doc(db, "foros", postId, "comentarios", commentToDelete.id));
       
       const postRef = doc(db, "foros", postId);
@@ -471,8 +519,9 @@ export default function ForumPostPage() {
               onLikeComment={handleLikeComment}
               onThankComment={handleThankComment}
               currentUserId={userId}
+              currentUserProfile={currentUserProfile}
               onEditComment={handleEditComment}
-              onDeleteCommentInitiate={setCommentToDelete}
+              onDeleteCommentInitiate={handleDeleteCommentInitiate}
               postId={postId}
             />
           ))
@@ -531,7 +580,7 @@ export default function ForumPostPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
               <AlertDialogDescription>
-                Esta acción no se puede deshacer. Esto eliminará permanentemente el comentario.
+                Esta acción no se puede deshacer. Esto eliminará permanentemente el comentario. Si este comentario tiene respuestas, también serán eliminadas.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

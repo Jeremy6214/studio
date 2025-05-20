@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User as UserIcon, Mail, Lock, Image as ImageIcon, Palette, Languages, Save } from "lucide-react";
+import { User as UserIcon, Mail, Lock, Image as ImageIcon, Palette, Languages, Save, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { db, auth } from "@/lib/firebase";
@@ -27,12 +27,14 @@ import { doc, setDoc, getDoc } from "firebase/firestore";
 import { updateProfile, User as FirebaseUser, sendPasswordResetEmail } from "firebase/auth";
 import type { UserProfile } from "@/types/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch"; // Import Switch
 
 const settingsFormSchema = z.object({
   nombre: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }).max(50, { message: "El nombre no puede exceder los 50 caracteres."}),
   fotoPerfil: z.string().url({ message: "URL de imagen no válida." }).or(z.literal("").optional()),
   idioma: z.enum(["es", "en"], { required_error: "Debes seleccionar un idioma." }),
   tema: z.enum(["system", "light", "dark"], { required_error: "Debes seleccionar un tema." }),
+  isAdmin: z.boolean().optional(), // Nuevo campo
 });
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
@@ -45,6 +47,7 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [initialPhotoURL, setInitialPhotoURL] = useState(currentUser.photoURL || "");
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
 
   const form = useForm<SettingsFormValues>({
@@ -54,16 +57,18 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
       try {
         const userDocRef = doc(db, "usuarios", currentUser.uid);
         const userDocSnap = await getDoc(userDocRef);
-        let dbPreferences: Partial<UserProfile> = {};
+        let dbProfile: UserProfile | null = null;
         if (userDocSnap.exists()) {
-          dbPreferences = userDocSnap.data() as UserProfile;
+          dbProfile = userDocSnap.data() as UserProfile;
+          setUserProfile(dbProfile);
         }
-        setInitialPhotoURL(currentUser.photoURL || dbPreferences.fotoPerfil || "");
+        setInitialPhotoURL(currentUser.photoURL || dbProfile?.fotoPerfil || "");
         return {
-          nombre: currentUser.displayName || dbPreferences.nombre || "",
-          fotoPerfil: currentUser.photoURL || dbPreferences.fotoPerfil || "",
-          idioma: dbPreferences.idioma || "es",
-          tema: dbPreferences.tema || "system",
+          nombre: currentUser.displayName || dbProfile?.nombre || "",
+          fotoPerfil: currentUser.photoURL || dbProfile?.fotoPerfil || "",
+          idioma: dbProfile?.idioma || "es",
+          tema: dbProfile?.tema || "system",
+          isAdmin: dbProfile?.isAdmin || false,
         };
       } catch (error) {
         console.error("Error fetching user defaults:", error);
@@ -73,6 +78,7 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
           fotoPerfil: currentUser.photoURL || "",
           idioma: "es",
           tema: "system",
+          isAdmin: false,
         };
       } finally {
         setIsLoading(false);
@@ -81,14 +87,22 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
   });
   
   useEffect(() => {
-    const storedThemeSetting = localStorage.getItem("themeSetting") as SettingsFormValues["tema"] || form.getValues("tema");
-    handleThemeChange(storedThemeSetting, false); 
+    // Initialize theme from localStorage or form default
+    const themeValueFromForm = form.getValues("tema");
+    const storedThemeSetting = localStorage.getItem("themeSetting") as SettingsFormValues["tema"] || themeValueFromForm;
+    if (storedThemeSetting !== themeValueFromForm) {
+        form.setValue("tema", storedThemeSetting);
+    }
+    handleThemeChange(storedThemeSetting, false);
 
-    const storedLanguage = localStorage.getItem("language") as SettingsFormValues["idioma"] || form.getValues("idioma");
-    if (storedLanguage) {
+    // Initialize language from localStorage or form default
+    const languageValueFromForm = form.getValues("idioma");
+    const storedLanguage = localStorage.getItem("language") as SettingsFormValues["idioma"] || languageValueFromForm;
+     if (storedLanguage !== languageValueFromForm) {
         form.setValue("idioma", storedLanguage);
     }
-  }, []);
+    // Optionally dispatch language change event if needed by AppLayout here
+  }, [form]);
 
 
   const handleChangePassword = async () => {
@@ -164,14 +178,16 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
         fotoPerfil: data.fotoPerfil || "",
         idioma: data.idioma,
         tema: data.tema,
+        isAdmin: data.isAdmin || false, // Guardar el estado de isAdmin
       };
       await setDoc(userDocRef, userProfileData, { merge: true });
       
+      setUserProfile(userProfileData); // Actualizar el estado local del perfil
       setInitialPhotoURL(data.fotoPerfil || ""); 
 
-      handleThemeChange(data.tema, false); // Apply theme without toast as it's part of save
+      handleThemeChange(data.tema, false); 
       localStorage.setItem("language", data.idioma);
-      // Trigger language change in AppLayout
+      
       if (window.dispatchEvent) {
         window.dispatchEvent(new CustomEvent('languageChange', { detail: data.idioma }));
       }
@@ -360,6 +376,30 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
             </FormItem>
           )}
         />
+
+        <Separator />
+        <h3 className="text-lg font-medium flex items-center"><ShieldCheck className="mr-2 h-5 w-5 text-muted-foreground" />Modo Administrador (Pruebas)</h3>
+        <FormField
+            control={form.control}
+            name="isAdmin"
+            render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/30">
+                <div className="space-y-0.5">
+                    <FormLabel>Habilitar Privilegios de Administrador (Pruebas)</FormLabel>
+                    <FormDescription>
+                    Activa esto para simular permisos de administrador en los foros (ej. eliminar cualquier post/comentario).
+                    </FormDescription>
+                </div>
+                <FormControl>
+                    <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    />
+                </FormControl>
+                </FormItem>
+            )}
+        />
+
 
         <Button type="submit" size="lg" disabled={isLoading || form.formState.isSubmitting}>
           <Save className="mr-2 h-4 w-4" /> {isLoading || form.formState.isSubmitting ? "Guardando..." : "Guardar Cambios"}

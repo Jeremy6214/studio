@@ -19,7 +19,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, getDoc, increment } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, getDoc, runTransaction, increment } from "firebase/firestore";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import type { ForumPost, UserProfile } from "@/types/firestore";
 import { formatDistanceToNow } from 'date-fns';
@@ -91,11 +91,12 @@ function CreatePostDialog({
           titulo: title,
           contenido: content,
           categoria: category as ForumPost["category"],
+          // No actualizamos autor ni fecha de creación al editar
         };
         await updateDoc(postRef, updatedPostData);
         toast({ title: "Publicación Actualizada", description: `La publicación "${title}" ha sido actualizada.` });
       } else {
-        const newPostData: Omit<ForumPost, 'id'> = { // Omit 'id' as Firestore generates it
+        const newPostData: Omit<ForumPost, 'id'> = { 
           titulo: title,
           contenido: content,
           categoria: category as ForumPost["category"],
@@ -110,7 +111,7 @@ function CreatePostDialog({
         await addDoc(collection(db, "foros"), newPostData);
         toast({ title: "Publicación Creada", description: `La publicación "${title}" ha sido creada.` });
       }
-      onPostUpdatedOrCreated(); // Callback to refresh or update UI
+      onPostUpdatedOrCreated(); 
       onOpenChange(false); 
       resetForm();
     } catch (error: any) {
@@ -194,6 +195,23 @@ export default function ForumsPage() {
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
   const [editingPost, setEditingPost] = useState<ForumPost | null>(null);
   const [postToDelete, setPostToDelete] = useState<ForumPost | null>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    if (userId) {
+      const userDocRef = doc(db, "usuarios", userId);
+      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setCurrentUserProfile(docSnap.data() as UserProfile);
+        } else {
+          setCurrentUserProfile(null);
+        }
+      });
+      return () => unsubscribe();
+    } else {
+      setCurrentUserProfile(null);
+    }
+  }, [userId]);
 
   useEffect(() => {
     setIsLoadingPosts(true);
@@ -214,22 +232,36 @@ export default function ForumsPage() {
   }, [toast]);
   
   const handleEditPost = (post: ForumPost) => {
-    setEditingPost(post);
-    setIsCreatePostModalOpen(true);
+    if (userId === post.autorId || currentUserProfile?.isAdmin) {
+      setEditingPost(post);
+      setIsCreatePostModalOpen(true);
+    } else {
+      toast({ title: "Error", description: "No tienes permiso para editar esta publicación.", variant: "destructive" });
+    }
   };
 
+  const handleDeletePostInitiate = (post: ForumPost) => {
+     if (userId === post.autorId || currentUserProfile?.isAdmin) {
+      setPostToDelete(post);
+    } else {
+      toast({ title: "Error", description: "No tienes permiso para eliminar esta publicación.", variant: "destructive" });
+    }
+  }
+
   const handleDeletePost = async () => {
-    if (!postToDelete || !userId || postToDelete.autorId !== userId) {
-      toast({ title: "Error", description: "No tienes permiso para eliminar esta publicación o no hay publicación seleccionada.", variant: "destructive" });
+    if (!postToDelete) return;
+    if (userId !== postToDelete.autorId && !currentUserProfile?.isAdmin) {
+      toast({ title: "Error", description: "No tienes permiso para eliminar esta publicación.", variant: "destructive" });
       setPostToDelete(null);
       return;
     }
     try {
-      // Note: Deleting subcollections (comments) needs a more complex approach (e.g., Cloud Function or client-side batch delete)
-      // For simplicity, we only delete the post document here.
+      // Firestore does not automatically delete subcollections.
+      // For a production app, you'd need a Cloud Function or client-side batch delete for comments.
+      // For this example, we'll just delete the post document.
       await deleteDoc(doc(db, "foros", postToDelete.id));
       toast({ title: "Publicación Eliminada", description: `La publicación "${postToDelete.titulo}" ha sido eliminada.` });
-      // Posts state will update via onSnapshot
+      // Posts state will update via onSnapshot listener
     } catch (error: any) {
       console.error("Error deleting post:", error);
       toast({ title: "Error", description: "No se pudo eliminar la publicación. " + error.message, variant: "destructive" });
@@ -311,13 +343,13 @@ export default function ForumsPage() {
         </TabsList>
         
         <TabsContent value="profesores" className="mt-6">
-          <ForumCategoryContent categoryName="Preguntas de Profesores" posts={postsProfesores} formatDate={formatDate} currentUserId={userId} onEdit={handleEditPost} onDeleteInitiate={setPostToDelete}/>
+          <ForumCategoryContent categoryName="Preguntas de Profesores" posts={postsProfesores} formatDate={formatDate} currentUserId={userId} currentUserProfile={currentUserProfile} onEdit={handleEditPost} onDeleteInitiate={handleDeletePostInitiate}/>
         </TabsContent>
         <TabsContent value="estudiantes" className="mt-6">
-          <ForumCategoryContent categoryName="Soporte Estudiantil" posts={postsEstudiantes} formatDate={formatDate} currentUserId={userId} onEdit={handleEditPost} onDeleteInitiate={setPostToDelete}/>
+          <ForumCategoryContent categoryName="Soporte Estudiantil" posts={postsEstudiantes} formatDate={formatDate} currentUserId={userId} currentUserProfile={currentUserProfile} onEdit={handleEditPost} onDeleteInitiate={handleDeletePostInitiate}/>
         </TabsContent>
         <TabsContent value="recursos" className="mt-6">
-         <ForumCategoryContent categoryName="Recursos Compartidos" posts={postsRecursos} formatDate={formatDate} currentUserId={userId} onEdit={handleEditPost} onDeleteInitiate={setPostToDelete}/>
+         <ForumCategoryContent categoryName="Recursos Compartidos" posts={postsRecursos} formatDate={formatDate} currentUserId={userId} currentUserProfile={currentUserProfile} onEdit={handleEditPost} onDeleteInitiate={handleDeletePostInitiate}/>
         </TabsContent>
       </Tabs>
       
@@ -354,6 +386,7 @@ function ForumCategoryContent({
   posts,
   formatDate,
   currentUserId,
+  currentUserProfile,
   onEdit,
   onDeleteInitiate 
 }: { 
@@ -361,6 +394,7 @@ function ForumCategoryContent({
   posts: ForumPost[];
   formatDate: (timestamp: any) => string;
   currentUserId: string | null;
+  currentUserProfile: UserProfile | null;
   onEdit: (post: ForumPost) => void;
   onDeleteInitiate: (post: ForumPost) => void;
 }) {
@@ -384,7 +418,7 @@ function ForumCategoryContent({
                   <span>{formatDate(post.fechaCreacion)}</span>
                 </CardDescription>
               </div>
-              {currentUserId === post.autorId && (
+              {(currentUserId === post.autorId || currentUserProfile?.isAdmin) && (
                 <div className="flex gap-1">
                   <Button variant="ghost" size="icon" onClick={() => onEdit(post)} aria-label="Editar">
                     <Edit className="h-4 w-4" />

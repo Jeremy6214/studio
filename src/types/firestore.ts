@@ -8,6 +8,7 @@ export interface UserProfile {
   fotoPerfil?: string;
   tema?: 'light' | 'dark' | 'system';
   idioma?: 'es' | 'en';
+  isAdmin?: boolean; // Nuevo campo para simular rol de admin
   // configPreferencias?: Record<string, any>; // Example for additional settings
 }
 
