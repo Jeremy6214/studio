@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input'; // Added Input import
+import { Label } from '@/components/ui/label'; // Added Label import
 import { ArrowLeft, ThumbsUp, Send, MessageSquare, Edit, Trash2, Heart } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -140,15 +142,21 @@ export default function ForumPostPage() {
 
   const handleReaction = (type: 'likes' | 'gracias', target: 'post' | 'comment', targetId?: string) => {
     if (target === 'post' && post) {
-      setPost(prevPost => prevPost ? { ...prevPost, [type]: prevPost[type] + 1 } : null);
+      setPost(prevPost => prevPost ? { ...prevPost, [type]: (prevPost[type] || 0) + 1 } : null);
       toast({description: `Reacción enviada a la publicación.`});
     } else if (target === 'comment' && targetId) {
-      setComments(prevComments => 
-        prevComments.map(comment => 
-          comment.id === targetId ? { ...comment, [type]: comment[type] + 1 } : comment
-        )
-      );
-      // Esto no actualizará los contadores en respuestas anidadas profundamente sin una lógica más compleja de recorrido del árbol
+      const updateCommentReactions = (commentsList: ForumComment[]): ForumComment[] => {
+        return commentsList.map(comment => {
+          if (comment.id === targetId) {
+            return { ...comment, [type]: (comment[type] || 0) + 1 };
+          }
+          if (comment.replies) {
+            return { ...comment, replies: updateCommentReactions(comment.replies) };
+          }
+          return comment;
+        });
+      };
+      setComments(prevComments => updateCommentReactions(prevComments));
       toast({description: `Reacción enviada al comentario.`});
     }
   };
@@ -185,27 +193,27 @@ export default function ForumPostPage() {
     };
 
     if (replyingTo) {
-      // Añadir como respuesta anidada (simulación simple, no recursiva profunda)
+      // Añadir como respuesta anidada
       setComments(prevComments => {
-        const addReply = (cs: ForumComment[]): ForumComment[] => {
+        const addReplyRecursively = (cs: ForumComment[]): ForumComment[] => {
           return cs.map(c => {
             if (c.id === replyingTo.id) {
               return { ...c, replies: [...(c.replies || []), newCommentData] };
             }
             if (c.replies) {
-              return { ...c, replies: addReply(c.replies) };
+              return { ...c, replies: addReplyRecursively(c.replies) };
             }
             return c;
           });
         };
-        return addReply(prevComments);
+        return addReplyRecursively(prevComments);
       });
     } else {
       setComments(prevComments => [...prevComments, newCommentData]);
     }
     
     if (post) {
-       setPost(prevPost => prevPost ? {...prevPost, commentsCount: prevPost.commentsCount + 1} : null);
+       setPost(prevPost => prevPost ? {...prevPost, commentsCount: (prevPost.commentsCount || 0) + 1} : null);
     }
 
     setNewComment('');
@@ -218,25 +226,29 @@ export default function ForumPostPage() {
     const commentsMap = new Map<string, ForumComment>();
     const rootComments: ForumComment[] = [];
 
-    // Clone comments and initialize replies array
+    // Clone comments and initialize replies array if they don't exist
     commentsList.forEach(comment => {
-      commentsMap.set(comment.id, { ...comment, replies: [] });
+      commentsMap.set(comment.id, { ...comment, replies: comment.replies ? [...comment.replies] : [] });
     });
 
-    commentsList.forEach(comment => {
-      const currentComment = commentsMap.get(comment.id);
+    commentsList.forEach(originalComment => {
+      const currentComment = commentsMap.get(originalComment.id);
       if (currentComment) {
-        if (comment.respuestaA && commentsMap.has(comment.respuestaA)) {
-          const parentComment = commentsMap.get(comment.respuestaA);
-          // Ensure parentComment.replies is initialized
+        if (originalComment.respuestaA && commentsMap.has(originalComment.respuestaA)) {
+          const parentComment = commentsMap.get(originalComment.respuestaA);
           if (parentComment) {
-            if (!parentComment.replies) {
+            if (!parentComment.replies) { // Ensure replies array exists
               parentComment.replies = [];
             }
-            parentComment.replies.push(currentComment);
+            // Avoid adding if it's already there (though with current logic of building from flat list, this check might be redundant)
+            if (!parentComment.replies.find(r => r.id === currentComment.id)) {
+                 parentComment.replies.push(currentComment);
+            }
           }
-        } else {
-          rootComments.push(currentComment);
+        } else if (!originalComment.respuestaA) { // Only add to root if it's not a reply
+          if (!rootComments.find(r => r.id === currentComment.id)) { // Avoid duplicates in root
+            rootComments.push(currentComment);
+          }
         }
       }
     });
