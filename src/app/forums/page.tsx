@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, GraduationCap, HelpCircle, Share2, MessageSquare, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, GraduationCap, HelpCircle, Share2, MessageSquare, Edit, Trash2, ThumbsUp, Heart } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -14,12 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Import Avatar components
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { db } from "@/lib/firebase";
-import { collection, addDoc, getDocs, serverTimestamp, query, orderBy, deleteDoc, doc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, getDoc } from "firebase/firestore";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import type { ForumPost, UserProfile } from "@/types/firestore";
 import { formatDistanceToNow } from 'date-fns';
@@ -30,14 +30,14 @@ function CreatePostDialog({
   open, 
   onOpenChange, 
   onPostCreated,
-  editingPost, // ForumPost | null
+  editingPost,
   onPostUpdated
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
-  onPostCreated: (post: ForumPost) => void;
+  onPostCreated: (post: ForumPost) => void; // Not strictly needed if using onSnapshot
   editingPost: ForumPost | null;
-  onPostUpdated: (post: ForumPost) => void;
+  onPostUpdated: (post: ForumPost) => void; // Not strictly needed if using onSnapshot
 }) {
   const { toast } = useToast();
   const { user, userId } = useFirebaseAuth();
@@ -51,7 +51,7 @@ function CreatePostDialog({
       setTitle(editingPost.titulo);
       setContent(editingPost.contenido);
       setCategory(editingPost.categoria);
-    } else if (!open) {
+    } else if (!open && !editingPost) { // Reset only if not editing
       resetForm();
     }
   }, [editingPost, open]);
@@ -84,6 +84,8 @@ function CreatePostDialog({
         userProfile = userDocSnap.data() as UserProfile;
       }
 
+      const authorName = userProfile?.nombre || user.displayName || "Usuario Anónimo";
+      const authorPhoto = userProfile?.fotoPerfil || user.photoURL || "";
 
       if (editingPost) {
         const postRef = doc(db, "foros", editingPost.id);
@@ -91,48 +93,40 @@ function CreatePostDialog({
           titulo: title,
           contenido: content,
           categoria: category as ForumPost["category"],
+          // autorId, fechaCreacion, likes, gracias, commentsCount remain unchanged on edit through this simple modal
         };
         await updateDoc(postRef, updatedPostData);
-        onPostUpdated({ ...editingPost, ...updatedPostData });
+        // onPostUpdated will be handled by onSnapshot
         toast({ title: "Publicación Actualizada", description: `La publicación "${title}" ha sido actualizada.` });
       } else {
-        const newPostData: Omit<ForumPost, 'id' | 'fechaCreacion' | 'likes' | 'gracias'> & { fechaCreacion: any } = {
+        const newPostData = {
           titulo: title,
           contenido: content,
           categoria: category as ForumPost["category"],
           autorId: userId,
-          autorNombre: userProfile?.nombre || user.displayName || "Usuario Anónimo",
-          autorFoto: userProfile?.fotoPerfil || user.photoURL || "",
+          autorNombre: authorName,
+          autorFoto: authorPhoto,
           fechaCreacion: serverTimestamp(),
-          // likes and gracias will be initialized by Firestore or default to empty array if needed by type
-        };
-        const docRef = await addDoc(collection(db, "foros"), {
-          ...newPostData,
-          likes: [], // Initialize as empty array
-          gracias: [], // Initialize as empty array
-          commentsCount: 0,
-        });
-        onPostCreated({ 
-          ...newPostData, 
-          id: docRef.id, 
-          fechaCreacion: { seconds: Date.now()/1000, nanoseconds: 0}, // Approximate for UI update
-          likes: [], 
+          likes: [],
           gracias: [],
           commentsCount: 0,
-        });
+        };
+        await addDoc(collection(db, "foros"), newPostData);
+        // onPostCreated will be handled by onSnapshot
         toast({ title: "Publicación Creada", description: `La publicación "${title}" ha sido creada.` });
       }
-      onOpenChange(false);
-      resetForm();
+      onOpenChange(false); // Close dialog
+      if (!editingPost) resetForm(); // Reset form only if creating new
     } catch (error: any) {
       console.error("Error creating/updating post:", error);
       toast({ title: "Error", description: error.message || "No se pudo crear/actualizar la publicación.", variant: "destructive" });
+    } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) resetForm(); onOpenChange(isOpen); }}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) { resetForm(); } onOpenChange(isOpen); }}>
       <DialogContent className="sm:max-w-lg bg-card border-border">
         <DialogHeader>
           <DialogTitle className="text-primary-foreground">{editingPost ? "Editar Publicación" : "Crear Nueva Publicación"}</DialogTitle>
@@ -184,7 +178,7 @@ function CreatePostDialog({
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => { onOpenChange(false); if (!editingPost) resetForm(); }} disabled={isSubmitting}>Cancelar</Button>
             <Button type="submit" disabled={isSubmitting || !title.trim() || !content.trim() || !category}>
               {isSubmitting ? (editingPost ? "Actualizando..." : "Publicando...") : (editingPost ? "Actualizar Publicación" : "Publicar")}
             </Button>
@@ -206,31 +200,29 @@ export default function ForumsPage() {
   const [postToDelete, setPostToDelete] = useState<ForumPost | null>(null);
 
   useEffect(() => {
-    const fetchPosts = async () => {
-      setIsLoadingPosts(true);
-      try {
-        const q = query(collection(db, "foros"), orderBy("fechaCreacion", "desc"));
-        const querySnapshot = await getDocs(q);
-        const fetchedPosts: ForumPost[] = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as ForumPost));
-        setPosts(fetchedPosts);
-      } catch (error) {
-        console.error("Error fetching posts:", error);
-        toast({ title: "Error", description: "No se pudieron cargar las publicaciones.", variant: "destructive" });
-      }
+    setIsLoadingPosts(true);
+    const q = query(collection(db, "foros"), orderBy("fechaCreacion", "desc"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const fetchedPosts: ForumPost[] = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as ForumPost));
+      setPosts(fetchedPosts);
       setIsLoadingPosts(false);
-    };
-    fetchPosts();
+    }, (error) => {
+      console.error("Error fetching posts:", error);
+      toast({ title: "Error", description: "No se pudieron cargar las publicaciones.", variant: "destructive" });
+      setIsLoadingPosts(false);
+    });
+    return () => unsubscribe(); // Cleanup listener on component unmount
   }, [toast]);
 
   const handlePostCreated = (newPost: ForumPost) => {
-    setPosts(prevPosts => [newPost, ...prevPosts]); // Add to top for immediate visibility
+    // No longer needed here if using onSnapshot, as it will update 'posts' state automatically
   };
 
   const handlePostUpdated = (updatedPost: ForumPost) => {
-    setPosts(prevPosts => prevPosts.map(p => p.id === updatedPost.id ? updatedPost : p));
+    // No longer needed here if using onSnapshot
     setEditingPost(null);
   };
   
@@ -247,15 +239,14 @@ export default function ForumsPage() {
     }
     try {
       await deleteDoc(doc(db, "foros", postToDelete.id));
-      setPosts(prevPosts => prevPosts.filter(p => p.id !== postToDelete.id));
+      // Posts state will update via onSnapshot
       toast({ title: "Publicación Eliminada", description: `La publicación "${postToDelete.titulo}" ha sido eliminada.` });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting post:", error);
-      toast({ title: "Error", description: "No se pudo eliminar la publicación.", variant: "destructive" });
+      toast({ title: "Error", description: "No se pudo eliminar la publicación. " + error.message, variant: "destructive" });
     }
     setPostToDelete(null);
   };
-
 
   const postsProfesores = useMemo(() => posts.filter(p => p.categoria === "profesores"), [posts]);
   const postsEstudiantes = useMemo(() => posts.filter(p => p.categoria === "estudiantes"), [posts]);
@@ -263,14 +254,34 @@ export default function ForumsPage() {
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return "Fecha desconocida";
-    // Firestore Timestamps might not be immediately available as Date objects in client state after creation
-    // So we handle both cases: an object with seconds/nanoseconds, or already a Date object.
     const date = timestamp.toDate ? timestamp.toDate() : (timestamp.seconds ? new Date(timestamp.seconds * 1000) : new Date(timestamp));
     return formatDistanceToNow(date, { addSuffix: true, locale: es });
   };
 
   if (authLoading || isLoadingPosts) {
-    return <div className="flex justify-center items-center h-64"><p>Cargando foros...</p></div>;
+     return (
+      <div className="space-y-8">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <Skeleton className="h-10 w-72 mb-2" />
+            <Skeleton className="h-5 w-96" />
+          </div>
+          <Skeleton className="h-12 w-56 rounded-md" />
+        </header>
+        <Tabs defaultValue="preguntas-profesores" className="w-full">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10 bg-muted">
+            <Skeleton className="h-8 w-full rounded-sm" />
+            <Skeleton className="h-8 w-full rounded-sm" />
+            <Skeleton className="h-8 w-full rounded-sm" />
+          </TabsList>
+          <TabsContent value="preguntas-profesores" className="mt-6">
+            <div className="space-y-4">
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-36 w-full rounded-lg" />)}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    );
   }
 
   return (
@@ -288,33 +299,35 @@ export default function ForumsPage() {
             Crear Nueva Publicación
           </Button>
         ) : (
-          <Button variant="outline" size="lg" disabled>
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Inicia sesión para publicar
+          <Button variant="outline" size="lg" asChild>
+            <Link href="/login">
+              <PlusCircle className="mr-2 h-5 w-5" />
+              Inicia sesión para publicar
+            </Link>
           </Button>
         )}
       </header>
 
-      <Tabs defaultValue="preguntas-profesores" className="w-full">
+      <Tabs defaultValue="profesores" className="w-full">
         <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10 bg-muted">
-          <TabsTrigger value="preguntas-profesores" className="py-2 sm:py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="profesores" className="py-2 sm:py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <GraduationCap className="mr-2 h-4 w-4 sm:hidden md:inline-block" /> Preguntas de Profesores
           </TabsTrigger>
-          <TabsTrigger value="soporte-estudiantil" className="py-2 sm:py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="estudiantes" className="py-2 sm:py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <HelpCircle className="mr-2 h-4 w-4 sm:hidden md:inline-block" /> Soporte Estudiantil
           </TabsTrigger>
-          <TabsTrigger value="recursos-compartidos" className="py-2 sm:py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="recursos" className="py-2 sm:py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Share2 className="mr-2 h-4 w-4 sm:hidden md:inline-block" /> Recursos Compartidos
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="preguntas-profesores" className="mt-6">
+        <TabsContent value="profesores" className="mt-6">
           <ForumCategoryContent categoryName="Preguntas de Profesores" posts={postsProfesores} formatDate={formatDate} currentUserId={userId} onEdit={handleEditPost} onDeleteInitiate={setPostToDelete}/>
         </TabsContent>
-        <TabsContent value="soporte-estudiantil" className="mt-6">
+        <TabsContent value="estudiantes" className="mt-6">
           <ForumCategoryContent categoryName="Soporte Estudiantil" posts={postsEstudiantes} formatDate={formatDate} currentUserId={userId} onEdit={handleEditPost} onDeleteInitiate={setPostToDelete}/>
         </TabsContent>
-        <TabsContent value="recursos-compartidos" className="mt-6">
+        <TabsContent value="recursos" className="mt-6">
          <ForumCategoryContent categoryName="Recursos Compartidos" posts={postsRecursos} formatDate={formatDate} currentUserId={userId} onEdit={handleEditPost} onDeleteInitiate={setPostToDelete}/>
         </TabsContent>
       </Tabs>
@@ -322,9 +335,9 @@ export default function ForumsPage() {
       <CreatePostDialog 
         open={isCreatePostModalOpen} 
         onOpenChange={setIsCreatePostModalOpen} 
-        onPostCreated={handlePostCreated}
+        onPostCreated={handlePostCreated} // This prop might be less critical with onSnapshot
         editingPost={editingPost}
-        onPostUpdated={handlePostUpdated}
+        onPostUpdated={handlePostUpdated} // This prop might be less critical with onSnapshot
       />
 
       {postToDelete && (
@@ -334,6 +347,7 @@ export default function ForumsPage() {
               <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
               <AlertDialogDescription>
                 Esta acción no se puede deshacer. Esto eliminará permanentemente la publicación "{postToDelete.titulo}".
+                Todos los comentarios asociados también serán eliminados (funcionalidad de eliminación de subcolección pendiente).
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -372,12 +386,14 @@ function ForumCategoryContent({
                 <Link href={`/forums/${post.id}`} passHref>
                   <CardTitle className="text-lg text-primary-foreground hover:text-primary transition-colors cursor-pointer">{post.titulo}</CardTitle>
                 </Link>
-                <CardDescription className="flex items-center gap-1 text-xs mt-1">
+                <CardDescription className="flex items-center gap-2 text-xs mt-1">
                   <Avatar className="h-5 w-5">
                     <AvatarImage src={post.autorFoto || `https://placehold.co/40x40.png?text=${post.autorNombre?.substring(0,1) || 'A'}`} data-ai-hint="user avatar small" />
                     <AvatarFallback>{post.autorNombre?.substring(0,1) || "A"}</AvatarFallback>
                   </Avatar>
-                  {post.autorNombre || "Usuario Anónimo"} &bull; {formatDate(post.fechaCreacion)}
+                  <span>{post.autorNombre || "Usuario Anónimo"}</span>
+                  <span>&bull;</span>
+                  <span>{formatDate(post.fechaCreacion)}</span>
                 </CardDescription>
               </div>
               {currentUserId === post.autorId && (
@@ -401,8 +417,8 @@ function ForumCategoryContent({
                 <span>{post.commentsCount || 0} comentarios</span>
             </div>
             <div className="flex items-center gap-2">
-                <span>👍 {post.likes?.length || 0}</span>
-                <span>💖 {post.gracias?.length || 0}</span>
+                <ThumbsUp className="h-4 w-4" /><span>{post.likes?.length || 0}</span>
+                <Heart className="h-4 w-4" /><span>{post.gracias?.length || 0}</span>
             </div>
           </CardFooter>
         </Card>

@@ -1,8 +1,9 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,14 +12,14 @@ import { ArrowLeft, ThumbsUp, Send, MessageSquare, Edit, Trash2, Heart } from 'l
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, Timestamp, updateDoc, arrayUnion, arrayRemove, deleteDoc, runTransaction, increment } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, Timestamp, updateDoc, arrayUnion, arrayRemove, deleteDoc, runTransaction, increment, where } from 'firebase/firestore';
 import { useFirebaseAuth } from '@/hooks/useFirebaseAuth';
 import type { ForumPost, ForumComment, UserProfile } from '@/types/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
-
+import { Dialog, DialogHeader, DialogTitle as EditDialogTitle, DialogFooter as EditDialogFooter, DialogContent as EditDialogContent} from "@/components/ui/dialog"; // Alias for EditCommentDialog
 
 function CommentCard({ 
   comment, 
@@ -28,6 +29,7 @@ function CommentCard({
   currentUserId,
   onEditComment,
   onDeleteCommentInitiate,
+  postId, // Pass postId for reaction handling
   nestingLevel = 0
 }: { 
   comment: ForumComment; 
@@ -37,9 +39,9 @@ function CommentCard({
   currentUserId: string | null;
   onEditComment: (comment: ForumComment) => void;
   onDeleteCommentInitiate: (comment: ForumComment) => void;
+  postId: string;
   nestingLevel?: number;
 }) {
-  const { toast } = useToast();
   const formatDate = (timestamp: any) => {
     if (!timestamp) return "Fecha desconocida";
     const date = timestamp.toDate ? timestamp.toDate() : (timestamp.seconds ? new Date(timestamp.seconds * 1000) : new Date(timestamp));
@@ -88,7 +90,7 @@ function CommentCard({
         )}
       </CardFooter>
       {comment.replies && comment.replies.length > 0 && (
-        <div className="pl-0 py-3 pr-3 space-y-3"> {/* Adjusted padding for replies */}
+        <div className="pl-0 py-3 pr-3 space-y-3">
           {comment.replies.map(reply => (
             <CommentCard 
               key={reply.id} 
@@ -99,6 +101,7 @@ function CommentCard({
               currentUserId={currentUserId}
               onEditComment={onEditComment}
               onDeleteCommentInitiate={onDeleteCommentInitiate}
+              postId={postId}
               nestingLevel={nestingLevel + 1}
             />
           ))}
@@ -113,13 +116,11 @@ function EditCommentDialog({
   open,
   onOpenChange,
   comment,
-  onCommentUpdated,
-  postId
+  postId 
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   comment: ForumComment | null;
-  onCommentUpdated: (updatedComment: ForumComment) => void;
   postId: string;
 }) {
   const { toast } = useToast();
@@ -134,17 +135,17 @@ function EditCommentDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!comment || !content.trim()) {
-      toast({ title: "Error", description: "El contenido no puede estar vacío.", variant: "destructive" });
+    if (!comment || !content.trim() || !postId) {
+      toast({ title: "Error", description: "El contenido no puede estar vacío o falta información.", variant: "destructive" });
       return;
     }
     setIsSubmitting(true);
     try {
       const commentRef = doc(db, "foros", postId, "comentarios", comment.id);
       await updateDoc(commentRef, { contenido: content });
-      onCommentUpdated({ ...comment, contenido: content });
+      // UI will update due to onSnapshot listener for comments
       toast({ title: "Comentario Actualizado" });
-      onOpenChange(false);
+      onOpenChange(false); // Close dialog
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "No se pudo actualizar el comentario.", variant: "destructive" });
     } finally {
@@ -154,10 +155,10 @@ function EditCommentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Editar Comentario</DialogTitle>
-        </DialogHeader>
+      <EditDialogContent>
+        <EditDialogHeader>
+          <EditDialogTitle>Editar Comentario</EditDialogTitle>
+        </EditDialogHeader>
         <form onSubmit={handleSubmit}>
           <Textarea
             value={content}
@@ -166,14 +167,14 @@ function EditCommentDialog({
             className="my-4"
             disabled={isSubmitting}
           />
-          <DialogFooter>
+          <EditDialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancelar</Button>
             <Button type="submit" disabled={isSubmitting || !content.trim()}>
               {isSubmitting ? "Guardando..." : "Guardar Cambios"}
             </Button>
-          </DialogFooter>
+          </EditDialogFooter>
         </form>
-      </DialogContent>
+      </EditDialogContent>
     </Dialog>
   );
 }
@@ -196,7 +197,6 @@ export default function ForumPostPage() {
   const [commentToEdit, setCommentToEdit] = useState<ForumComment | null>(null);
   const [isEditCommentModalOpen, setIsEditCommentModalOpen] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState<ForumComment | null>(null);
-
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return "Fecha desconocida";
@@ -229,7 +229,7 @@ export default function ForumPostPage() {
   useEffect(() => {
     if (!postId) return;
     const commentsRef = collection(db, "foros", postId, "comentarios");
-    const q = query(commentsRef, orderBy("fecha", "asc"));
+    const q = query(commentsRef, orderBy("fecha", "asc")); // Order by ascending for chronological display
     const unsubscribeComments = onSnapshot(q, (querySnapshot) => {
       const fetchedComments: ForumComment[] = [];
       querySnapshot.forEach((doc) => {
@@ -246,7 +246,7 @@ export default function ForumPostPage() {
   const handleReaction = async (
     docId: string,
     reactionType: 'likes' | 'gracias',
-    isPost: boolean
+    isPost: boolean // true if reacting to post, false if to comment
   ) => {
     if (!userId) {
       toast({ title: "Error", description: "Debes iniciar sesión para reaccionar.", variant: "destructive" });
@@ -278,12 +278,10 @@ export default function ForumPostPage() {
     }
   };
   
-
   const handleLikePost = () => post && handleReaction(post.id, 'likes', true);
   const handleThankPost = () => post && handleReaction(post.id, 'gracias', true);
   const handleLikeComment = (commentId: string) => handleReaction(commentId, 'likes', false);
   const handleThankComment = (commentId: string) => handleReaction(commentId, 'gracias', false);
-
 
   const handleReplyToComment = (commentId: string, authorName: string) => {
     setReplyingTo({ id: commentId, authorName });
@@ -344,12 +342,6 @@ export default function ForumPostPage() {
     setIsEditCommentModalOpen(true);
   };
 
-  const handleCommentUpdated = (updatedComment: ForumComment) => {
-    // The onSnapshot listener for comments will automatically update the UI.
-    // No need to manually update state here if using onSnapshot for comments.
-    setCommentToEdit(null); // Clear editing state
-  };
-
   const handleDeleteComment = async () => {
     if (!commentToDelete || !userId || commentToDelete.autorId !== userId || !postId) {
       toast({ title: "Error", description: "No tienes permiso para eliminar este comentario o falta información.", variant: "destructive" });
@@ -370,9 +362,8 @@ export default function ForumPostPage() {
       console.error("Error deleting comment:", error);
       toast({ title: "Error", description: "No se pudo eliminar el comentario. " + error.message, variant: "destructive" });
     }
-    setCommentToDelete(null);
+    setCommentToDelete(null); // Close the confirmation dialog
   };
-
 
   // Helper to build comment tree for rendering
   const buildCommentTree = useCallback((commentsList: ForumComment[]): ForumComment[] => {
@@ -380,7 +371,7 @@ export default function ForumPostPage() {
     const rootComments: ForumComment[] = [];
 
     commentsList.forEach(comment => {
-      commentsMap.set(comment.id, { ...comment, replies: [] });
+      commentsMap.set(comment.id, { ...comment, replies: [] }); // Initialize replies array
     });
 
     commentsList.forEach(comment => {
@@ -388,7 +379,14 @@ export default function ForumPostPage() {
       if (currentComment) {
         if (comment.respuestaA && commentsMap.has(comment.respuestaA)) {
           const parentComment = commentsMap.get(comment.respuestaA);
-          parentComment?.replies?.push(currentComment);
+          if (parentComment) { // Check if parentComment is found
+            parentComment.replies = parentComment.replies || []; // Ensure replies array exists
+            parentComment.replies.push(currentComment);
+          } else {
+            // This case handles replies to comments that might have been deleted or are not yet loaded
+            // Or, if it's a reply to a comment that itself is a reply (deeper nesting not fully supported visually here)
+             rootComments.push(currentComment); // Add as root if parent is missing for now
+          }
         } else {
           rootComments.push(currentComment);
         }
@@ -433,7 +431,7 @@ export default function ForumPostPage() {
   }
 
   if (!post) {
-    return <div className="flex justify-center items-center h-64"><p>Publicación no encontrada.</p></div>;
+    return <div className="flex justify-center items-center h-64"><p>Publicación no encontrada o no disponible.</p></div>;
   }
   
   const hasLikedPost = userId && post.likes?.includes(userId);
@@ -448,7 +446,7 @@ export default function ForumPostPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl">{post.titulo}</CardTitle>
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground mt-2">
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground mt-2 flex-wrap">
             <Avatar className="h-8 w-8">
               <AvatarImage src={post.autorFoto || `https://placehold.co/40x40.png?text=${post.autorNombre?.substring(0,1) || 'P'}`} data-ai-hint="user avatar small"/>
               <AvatarFallback>{post.autorNombre?.substring(0,1) || "P"}</AvatarFallback>
@@ -471,7 +469,7 @@ export default function ForumPostPage() {
             <Heart className="h-5 w-5 mr-2" /> {post.gracias?.length || 0} Gracias
           </Button>
           <div className="flex items-center text-muted-foreground">
-            <MessageSquare className="h-5 w-5 mr-2" /> {post.commentsCount || comments.length || 0} Comentarios
+            <MessageSquare className="h-5 w-5 mr-2" /> {post.commentsCount || 0} Comentarios
           </div>
         </CardFooter>
       </Card>
@@ -479,7 +477,7 @@ export default function ForumPostPage() {
       <Separator />
 
       <div className="space-y-6">
-        <h2 className="text-2xl font-semibold">Comentarios ({post.commentsCount || comments.length || 0})</h2>
+        <h2 className="text-2xl font-semibold">Comentarios ({post.commentsCount || 0})</h2>
         {commentTree.length > 0 ? (
           commentTree.map(comment => (
             <CommentCard 
@@ -490,7 +488,8 @@ export default function ForumPostPage() {
               onThankComment={handleThankComment}
               currentUserId={userId}
               onEditComment={handleEditComment}
-              onDeleteCommentInitiate={setCommentToDelete}
+              onDeleteCommentInitiate={setCommentToDelete} // Triggers AlertDialog
+              postId={postId}
             />
           ))
         ) : (
@@ -523,7 +522,7 @@ export default function ForumPostPage() {
                       Cancelar Respuesta
                   </Button>
               )}
-              <Button onClick={handleSubmitComment} disabled={!newComment.trim() || isSubmittingComment}>
+              <Button onClick={handleSubmitComment} disabled={!newComment.trim() || isSubmittingComment || !userId}>
                 {isSubmittingComment ? "Publicando..." : <><Send className="mr-2 h-4 w-4" /> Publicar Comentario</>}
               </Button>
             </div>
@@ -539,7 +538,6 @@ export default function ForumPostPage() {
         open={isEditCommentModalOpen}
         onOpenChange={setIsEditCommentModalOpen}
         comment={commentToEdit}
-        onCommentUpdated={handleCommentUpdated}
         postId={postId}
       />
 

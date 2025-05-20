@@ -26,13 +26,13 @@ import { db, auth } from "@/lib/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { updateProfile, User as FirebaseUser, sendPasswordResetEmail } from "firebase/auth"; // Renamed User to FirebaseUser
 import type { UserProfile } from "@/types/firestore";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const settingsFormSchema = z.object({
-  nombre: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
-  // email is not directly editable through this form for security, shown as disabled
+  nombre: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }).max(50, { message: "El nombre no puede exceder los 50 caracteres."}),
   fotoPerfil: z.string().url({ message: "URL de imagen no válida." }).or(z.literal("").optional()),
-  idioma: z.enum(["es", "en"], { message: "Debes seleccionar un idioma." }),
-  tema: z.enum(["system", "light", "dark"], { message: "Debes seleccionar un tema." }),
+  idioma: z.enum(["es", "en"], { required_error: "Debes seleccionar un idioma." }),
+  tema: z.enum(["system", "light", "dark"], { required_error: "Debes seleccionar un tema." }),
 });
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
@@ -50,31 +50,47 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsFormSchema),
     defaultValues: async () => {
-      setIsLoading(true);
-      const userDocRef = doc(db, "usuarios", currentUser.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      let dbPreferences: Partial<UserProfile> = {};
-      if (userDocSnap.exists()) {
-        dbPreferences = userDocSnap.data() as UserProfile;
+      setIsLoading(true); // Start loading
+      try {
+        const userDocRef = doc(db, "usuarios", currentUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        let dbPreferences: Partial<UserProfile> = {};
+        if (userDocSnap.exists()) {
+          dbPreferences = userDocSnap.data() as UserProfile;
+        }
+        setInitialPhotoURL(currentUser.photoURL || dbPreferences.fotoPerfil || "");
+        return {
+          nombre: currentUser.displayName || dbPreferences.nombre || "",
+          fotoPerfil: currentUser.photoURL || dbPreferences.fotoPerfil || "",
+          idioma: dbPreferences.idioma || "es",
+          tema: dbPreferences.tema || "system",
+        };
+      } catch (error) {
+        console.error("Error fetching user defaults:", error);
+        toast({ title: "Error", description: "No se pudieron cargar tus datos.", variant: "destructive" });
+        return { // Fallback defaults
+          nombre: currentUser.displayName || "",
+          fotoPerfil: currentUser.photoURL || "",
+          idioma: "es",
+          tema: "system",
+        };
+      } finally {
+        setIsLoading(false); // End loading
       }
-      setInitialPhotoURL(currentUser.photoURL || dbPreferences.fotoPerfil || "");
-      setIsLoading(false);
-      return {
-        nombre: currentUser.displayName || dbPreferences.nombre || "",
-        fotoPerfil: currentUser.photoURL || dbPreferences.fotoPerfil || "",
-        idioma: dbPreferences.idioma || "es",
-        tema: dbPreferences.tema || "system",
-      };
     },
   });
-
+  
+  // Trigger theme change on initial load if 'system' is set or from localStorage
   useEffect(() => {
-    // For theme changes from settings to apply immediately if system theme is selected
-    const currentTheme = form.watch("tema");
-    if (currentTheme === "system") {
-       handleThemeChange(currentTheme, false); // Apply system preference without toast
+    const storedThemeSetting = localStorage.getItem("themeSetting") as SettingsFormValues["tema"] || form.getValues("tema");
+    handleThemeChange(storedThemeSetting, false); // Apply without toast on load
+
+    const storedLanguage = localStorage.getItem("language") as SettingsFormValues["idioma"] || form.getValues("idioma");
+    if (storedLanguage) {
+        form.setValue("idioma", storedLanguage);
+        // Potentially trigger i18n update here if a full system is in place
     }
-  }, [form.watch("tema")]);
+  }, []); // Empty dependency array: run once on mount
 
 
   const handleChangePassword = async () => {
@@ -91,25 +107,26 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
     } catch (error: any) {
       toast({
         title: "Error al enviar correo",
-        description: error.message,
+        description: error.message || "No se pudo enviar el correo de restablecimiento.",
         variant: "destructive",
       });
     }
   };
   
   const handleThemeChange = (themeValue: "system" | "light" | "dark", showToast: boolean = true) => {
-    localStorage.setItem("themeSetting", themeValue);
+    localStorage.setItem("themeSetting", themeValue); // Store user's direct choice
     let appliedTheme: 'light' | 'dark';
+
     if (themeValue === "light") {
       document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
+      localStorage.setItem("theme", "light"); // Store actual theme being applied
       appliedTheme = 'light';
     } else if (themeValue === "dark") {
       document.documentElement.classList.add("dark");
       localStorage.setItem("theme", "dark");
       appliedTheme = 'dark';
-    } else { // System
-      localStorage.removeItem("theme"); 
+    } else { // System preference
+      localStorage.removeItem("theme"); // Let CSS media query take over
       if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
         document.documentElement.classList.add("dark");
         appliedTheme = 'dark';
@@ -133,33 +150,37 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
 
     try {
       // Update Firebase Auth profile
-      if (auth.currentUser) {
+      if (auth.currentUser) { // Ensure auth.currentUser is not null
         await updateProfile(auth.currentUser, {
           displayName: data.nombre,
-          photoURL: data.fotoPerfil || null, // Send null if empty to potentially clear it
+          photoURL: data.fotoPerfil || null, // Send null if empty to potentially clear it in Auth
         });
+      } else {
+        throw new Error("Usuario no autenticado.");
       }
 
       // Update Firestore document
       const userDocRef = doc(db, "usuarios", currentUser.uid);
-      const userProfileData: Partial<UserProfile> = {
+      const userProfileData: UserProfile = { // Ensure all required fields of UserProfile are present
+        uid: currentUser.uid,
         nombre: data.nombre,
         correo: currentUser.email || "", // Email from Auth, not form
         fotoPerfil: data.fotoPerfil || "",
         idioma: data.idioma,
         tema: data.tema,
-        uid: currentUser.uid,
       };
       await setDoc(userDocRef, userProfileData, { merge: true });
       
-      setInitialPhotoURL(data.fotoPerfil || ""); // Update avatar on successful save
+      setInitialPhotoURL(data.fotoPerfil || ""); // Update avatar preview on successful save
 
+      // Apply theme and language preference
       handleThemeChange(data.tema);
       localStorage.setItem("language", data.idioma);
+      // Here you would typically trigger a reload or context update for i18n if it's a full system
       
       toast({
         title: "Configuración Guardada",
-        description: "Tus preferencias han sido actualizadas.",
+        description: "Tus preferencias han sido actualizadas con éxito.",
       });
     } catch (error: any) {
       console.error("Error saving settings:", error);
@@ -173,7 +194,7 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
     }
   }
 
-  if (form.formState.isLoading || isLoading) { // Check form loading state too
+  if (form.formState.isLoading || isLoading) { // Check form loading state and explicit isLoading
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-4">
@@ -195,7 +216,7 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
         <Separator />
         <Skeleton className="h-6 w-1/3 mb-2" />
         <Skeleton className="h-10 w-full" />
-        <Button size="lg" disabled>
+        <Button size="lg" disabled className="mt-4">
           <Save className="mr-2 h-4 w-4" /> Guardando...
         </Button>
       </div>
@@ -313,7 +334,15 @@ export function SettingsForm({ currentUser }: SettingsFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Idioma de la Aplicación</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select 
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  localStorage.setItem("language", value);
+                  // Add logic to re-render app with new language if using a full i18n system
+                  toast({ title: `Idioma cambiado a ${value === 'es' ? 'Español' : 'English'} (simulado)` });
+                }}
+                value={field.value}
+              >
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona un idioma" />

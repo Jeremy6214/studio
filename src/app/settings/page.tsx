@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Settings as SettingsIcon } from "lucide-react";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default function SettingsPage() {
   const { user, loading } = useFirebaseAuth();
@@ -40,10 +42,18 @@ export default function SettingsPage() {
 
   if (!user) {
     return (
-      <div className="space-y-8 max-w-3xl mx-auto text-center">
-        <h1 className="text-2xl font-bold">Acceso Denegado</h1>
-        <p className="text-muted-foreground">Debes iniciar sesión para acceder a la configuración.</p>
-        {/* Aquí podrías añadir un botón para ir a la página de login */}
+      <div className="space-y-8 max-w-3xl mx-auto text-center py-10">
+        <SettingsIcon className="h-16 w-16 mx-auto text-muted-foreground" />
+        <h1 className="text-3xl font-bold">Acceso Denegado</h1>
+        <p className="text-muted-foreground text-lg">
+          Debes iniciar sesión para acceder a la configuración de tu cuenta.
+        </p>
+        <Button asChild size="lg">
+          <Link href="/login">Iniciar Sesión</Link>
+        </Button>
+         <p className="text-sm text-muted-foreground mt-4">
+          ¿No tienes una cuenta? <Link href="/register" className="text-primary hover:underline">Regístrate aquí</Link>.
+        </p>
       </div>
     );
   }
