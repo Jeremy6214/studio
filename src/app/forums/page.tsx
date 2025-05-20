@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, GraduationCap, HelpCircle, Share2, MessageSquare, Edit, Trash2, ThumbsUp, Heart } from "lucide-react";
+import { PlusCircle, GraduationCap, HelpCircle, Share2, MessageSquare, ThumbsUp, Heart } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -15,124 +15,96 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-
-import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, getDoc, runTransaction, increment } from "firebase/firestore";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
-import type { ForumPost, UserProfile } from "@/types/firestore";
+import type { ForumPost } from "@/types/firestore"; // Aún usamos el tipo, pero los datos son locales
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+// Datos de ejemplo locales
+const initialPosts: ForumPost[] = [
+  { id: '1', titulo: 'Bienvenida al Foro de Profesores', contenido: 'Este es un espacio para discutir temas relevantes para educadores.', autorNombre: 'Admin EduConnect', fechaCreacion: new Date(2024, 6, 1), categoria: 'profesores', likes: 10, gracias: 5, commentsCount: 2 },
+  { id: '2', titulo: '¿Cómo usar Genkit en Next.js?', contenido: 'Tengo dudas sobre la integración de Genkit...', autorNombre: 'Estudiante Curioso', fechaCreacion: new Date(2024, 6, 10), categoria: 'estudiantes', likes: 15, gracias: 3, commentsCount: 1 },
+  { id: '3', titulo: 'Excelente Guía de Tailwind CSS', contenido: 'Comparto esta guía que me pareció muy útil: [link]', autorNombre: 'Colaborador Anónimo', fechaCreacion: new Date(2024, 6, 15), categoria: 'recursos', likes: 25, gracias: 12, commentsCount: 0 },
+];
 
 
 function CreatePostDialog({ 
   open, 
-  onOpenChange, 
-  editingPost,
-  onPostUpdatedOrCreated
+  onOpenChange,
+  onPostCreated
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
-  editingPost: ForumPost | null;
-  onPostUpdatedOrCreated: () => void; 
+  onPostCreated: (newPost: ForumPost) => void; 
 }) {
   const { toast } = useToast();
-  const { user, userId } = useFirebaseAuth();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState<ForumPost["category"] | "">("");
+  const [authorName, setAuthorName] = useState("Usuario Anónimo"); // Nombre de autor simple
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (editingPost && open) {
-      setTitle(editingPost.titulo);
-      setContent(editingPost.contenido);
-      setCategory(editingPost.categoria);
-    } else if (!open) { 
-      resetForm();
-    }
-  }, [editingPost, open]);
 
   const resetForm = () => {
     setTitle("");
     setContent("");
     setCategory("");
+    setAuthorName("Usuario Anónimo");
     setIsSubmitting(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !userId) {
-      toast({ title: "Error", description: "Debes iniciar sesión para publicar.", variant: "destructive" });
-      return;
-    }
     if (!title.trim() || !content.trim() || !category) {
       toast({ title: "Error", description: "Por favor, completa todos los campos.", variant: "destructive" });
       return;
     }
     
     setIsSubmitting(true);
+    // Simular un pequeño retraso
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    try {
-      let userProfile: UserProfile | null = null;
-      const userDocRef = doc(db, "usuarios", userId);
-      const userDocSnap = await getDoc(userDocRef);
-      if (userDocSnap.exists()) {
-        userProfile = userDocSnap.data() as UserProfile;
-      }
-
-      const authorName = userProfile?.nombre || user.displayName || "Usuario Anónimo";
-      const authorPhoto = userProfile?.fotoPerfil || user.photoURL || "";
-
-      if (editingPost) {
-        const postRef = doc(db, "foros", editingPost.id);
-        const updatedPostData = {
-          titulo: title,
-          contenido: content,
-          categoria: category as ForumPost["category"],
-          // No actualizamos autor ni fecha de creación al editar
-        };
-        await updateDoc(postRef, updatedPostData);
-        toast({ title: "Publicación Actualizada", description: `La publicación "${title}" ha sido actualizada.` });
-      } else {
-        const newPostData: Omit<ForumPost, 'id'> = { 
-          titulo: title,
-          contenido: content,
-          categoria: category as ForumPost["category"],
-          autorId: userId,
-          autorNombre: authorName,
-          autorFoto: authorPhoto,
-          fechaCreacion: serverTimestamp(),
-          likes: [],
-          gracias: [],
-          commentsCount: 0,
-        };
-        await addDoc(collection(db, "foros"), newPostData);
-        toast({ title: "Publicación Creada", description: `La publicación "${title}" ha sido creada.` });
-      }
-      onPostUpdatedOrCreated(); 
-      onOpenChange(false); 
-      resetForm();
-    } catch (error: any) {
-      console.error("Error creating/updating post:", error);
-      toast({ title: "Error", description: error.message || "No se pudo crear/actualizar la publicación.", variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
+    const newPost: ForumPost = { 
+      id: String(Date.now()), // ID simple basado en timestamp
+      titulo: title,
+      contenido: content,
+      categoria: category as ForumPost["category"],
+      autorNombre: authorName,
+      autorFoto: `https://placehold.co/40x40.png?text=${authorName.substring(0,1) || 'A'}`,
+      fechaCreacion: new Date(),
+      likes: 0,
+      gracias: 0,
+      commentsCount: 0,
+    };
+    
+    onPostCreated(newPost);
+    toast({ title: "Publicación Creada", description: `La publicación "${title}" ha sido creada.` });
+    onOpenChange(false); 
+    resetForm();
+    setIsSubmitting(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { onOpenChange(isOpen); if (!isOpen) resetForm(); }}>
       <DialogContent className="sm:max-w-lg bg-card border-border">
         <DialogHeader>
-          <DialogTitle className="text-primary-foreground">{editingPost ? "Editar Publicación" : "Crear Nueva Publicación"}</DialogTitle>
+          <DialogTitle className="text-primary-foreground">Crear Nueva Publicación</DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            {editingPost ? "Modifica los detalles de tu publicación." : "Comparte tus ideas, preguntas o recursos con la comunidad."}
+            Comparte tus ideas, preguntas o recursos con la comunidad.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="post-author" className="text-card-foreground">Tu Nombre (Opcional)</Label>
+              <Input 
+                id="post-author" 
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value || "Usuario Anónimo")}
+                className="bg-input border-input" 
+                disabled={isSubmitting}
+                placeholder="Usuario Anónimo"
+              />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="post-title" className="text-card-foreground">Título</Label>
               <Input 
@@ -177,7 +149,7 @@ function CreatePostDialog({
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => { onOpenChange(false); resetForm(); }} disabled={isSubmitting}>Cancelar</Button>
             <Button type="submit" disabled={isSubmitting || !title.trim() || !content.trim() || !category}>
-              {isSubmitting ? (editingPost ? "Actualizando..." : "Publicando...") : (editingPost ? "Actualizar Publicación" : "Publicar")}
+              {isSubmitting ? "Publicando..." : "Publicar"}
             </Button>
           </DialogFooter>
         </form>
@@ -189,97 +161,37 @@ function CreatePostDialog({
 
 export default function ForumsPage() {
   const { toast } = useToast();
-  const { user, userId, loading: authLoading } = useFirebaseAuth();
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
-  const [posts, setPosts] = useState<ForumPost[]>([]);
-  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
-  const [editingPost, setEditingPost] = useState<ForumPost | null>(null);
-  const [postToDelete, setPostToDelete] = useState<ForumPost | null>(null);
-  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const [posts, setPosts] = useState<ForumPost[]>(initialPosts);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false); // No longer loading from Firebase
 
-  useEffect(() => {
-    if (userId) {
-      const userDocRef = doc(db, "usuarios", userId);
-      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          setCurrentUserProfile(docSnap.data() as UserProfile);
-        } else {
-          setCurrentUserProfile(null);
-        }
-      });
-      return () => unsubscribe();
-    } else {
-      setCurrentUserProfile(null);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    setIsLoadingPosts(true);
-    const q = query(collection(db, "foros"), orderBy("fechaCreacion", "desc"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const fetchedPosts: ForumPost[] = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as ForumPost));
-      setPosts(fetchedPosts);
-      setIsLoadingPosts(false);
-    }, (error) => {
-      console.error("Error fetching posts:", error);
-      toast({ title: "Error", description: "No se pudieron cargar las publicaciones.", variant: "destructive" });
-      setIsLoadingPosts(false);
-    });
-    return () => unsubscribe();
-  }, [toast]);
+  const handlePostCreated = (newPost: ForumPost) => {
+    setPosts(prevPosts => [newPost, ...prevPosts]);
+  };
   
-  const handleEditPost = (post: ForumPost) => {
-    if (userId === post.autorId || currentUserProfile?.isAdmin) {
-      setEditingPost(post);
-      setIsCreatePostModalOpen(true);
-    } else {
-      toast({ title: "Error", description: "No tienes permiso para editar esta publicación.", variant: "destructive" });
-    }
+  const handleReaction = (postId: string, reactionType: 'likes' | 'gracias') => {
+    setPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { ...post, [reactionType]: post[reactionType] + 1 }
+          : post
+      )
+    );
+    toast({ description: `¡Has ${reactionType === 'likes' ? 'indicado que te gusta' : 'agradecido'} la publicación!`});
   };
 
-  const handleDeletePostInitiate = (post: ForumPost) => {
-     if (userId === post.autorId || currentUserProfile?.isAdmin) {
-      setPostToDelete(post);
-    } else {
-      toast({ title: "Error", description: "No tienes permiso para eliminar esta publicación.", variant: "destructive" });
-    }
-  }
-
-  const handleDeletePost = async () => {
-    if (!postToDelete) return;
-    if (userId !== postToDelete.autorId && !currentUserProfile?.isAdmin) {
-      toast({ title: "Error", description: "No tienes permiso para eliminar esta publicación.", variant: "destructive" });
-      setPostToDelete(null);
-      return;
-    }
-    try {
-      // Firestore does not automatically delete subcollections.
-      // For a production app, you'd need a Cloud Function or client-side batch delete for comments.
-      // For this example, we'll just delete the post document.
-      await deleteDoc(doc(db, "foros", postToDelete.id));
-      toast({ title: "Publicación Eliminada", description: `La publicación "${postToDelete.titulo}" ha sido eliminada.` });
-      // Posts state will update via onSnapshot listener
-    } catch (error: any) {
-      console.error("Error deleting post:", error);
-      toast({ title: "Error", description: "No se pudo eliminar la publicación. " + error.message, variant: "destructive" });
-    }
-    setPostToDelete(null);
-  };
 
   const postsProfesores = useMemo(() => posts.filter(p => p.categoria === "profesores"), [posts]);
   const postsEstudiantes = useMemo(() => posts.filter(p => p.categoria === "estudiantes"), [posts]);
   const postsRecursos = useMemo(() => posts.filter(p => p.categoria === "recursos"), [posts]);
 
-  const formatDate = (timestamp: any) => {
+  const formatDate = (timestamp: any) => { // timestamp can be Date object now
     if (!timestamp) return "Fecha desconocida";
-    const date = timestamp.toDate ? timestamp.toDate() : (timestamp.seconds ? new Date(timestamp.seconds * 1000) : new Date(timestamp));
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
     return formatDistanceToNow(date, { addSuffix: true, locale: es });
   };
 
-  if (authLoading || isLoadingPosts) {
+  if (isLoadingPosts) { // Kept for structure, but won't be true for long
      return (
       <div className="space-y-8">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -314,19 +226,10 @@ export default function ForumsPage() {
             Participa en discusiones temáticas, haz preguntas y comparte recursos.
           </p>
         </div>
-        {user ? (
-          <Button variant="default" size="lg" onClick={() => { setEditingPost(null); setIsCreatePostModalOpen(true); }}>
+        <Button variant="default" size="lg" onClick={() => setIsCreatePostModalOpen(true)}>
             <PlusCircle className="mr-2 h-5 w-5" />
             Crear Nueva Publicación
-          </Button>
-        ) : (
-          <Button variant="outline" size="lg" asChild>
-            <Link href="/login">
-              <PlusCircle className="mr-2 h-5 w-5" />
-              Inicia sesión para publicar
-            </Link>
-          </Button>
-        )}
+        </Button>
       </header>
 
       <Tabs defaultValue="profesores" className="w-full">
@@ -343,40 +246,36 @@ export default function ForumsPage() {
         </TabsList>
         
         <TabsContent value="profesores" className="mt-6">
-          <ForumCategoryContent categoryName="Preguntas de Profesores" posts={postsProfesores} formatDate={formatDate} currentUserId={userId} currentUserProfile={currentUserProfile} onEdit={handleEditPost} onDeleteInitiate={handleDeletePostInitiate}/>
+          <ForumCategoryContent 
+            categoryName="Preguntas de Profesores" 
+            posts={postsProfesores} 
+            formatDate={formatDate} 
+            onReact={handleReaction}
+          />
         </TabsContent>
         <TabsContent value="estudiantes" className="mt-6">
-          <ForumCategoryContent categoryName="Soporte Estudiantil" posts={postsEstudiantes} formatDate={formatDate} currentUserId={userId} currentUserProfile={currentUserProfile} onEdit={handleEditPost} onDeleteInitiate={handleDeletePostInitiate}/>
+          <ForumCategoryContent 
+            categoryName="Soporte Estudiantil" 
+            posts={postsEstudiantes} 
+            formatDate={formatDate} 
+            onReact={handleReaction}
+          />
         </TabsContent>
         <TabsContent value="recursos" className="mt-6">
-         <ForumCategoryContent categoryName="Recursos Compartidos" posts={postsRecursos} formatDate={formatDate} currentUserId={userId} currentUserProfile={currentUserProfile} onEdit={handleEditPost} onDeleteInitiate={handleDeletePostInitiate}/>
+         <ForumCategoryContent 
+            categoryName="Recursos Compartidos" 
+            posts={postsRecursos} 
+            formatDate={formatDate}
+            onReact={handleReaction}
+          />
         </TabsContent>
       </Tabs>
       
       <CreatePostDialog 
         open={isCreatePostModalOpen} 
         onOpenChange={setIsCreatePostModalOpen} 
-        editingPost={editingPost}
-        onPostUpdatedOrCreated={() => { /* onSnapshot handles UI update */ }}
+        onPostCreated={handlePostCreated}
       />
-
-      {postToDelete && (
-        <AlertDialog open={!!postToDelete} onOpenChange={() => setPostToDelete(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta acción no se puede deshacer. Esto eliminará permanentemente la publicación "{postToDelete.titulo}".
-                Los comentarios asociados no se eliminarán automáticamente con esta acción.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setPostToDelete(null)}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeletePost} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
     </div>
   );
 }
@@ -385,18 +284,12 @@ function ForumCategoryContent({
   categoryName, 
   posts,
   formatDate,
-  currentUserId,
-  currentUserProfile,
-  onEdit,
-  onDeleteInitiate 
+  onReact
 }: { 
   categoryName: string; 
   posts: ForumPost[];
   formatDate: (timestamp: any) => string;
-  currentUserId: string | null;
-  currentUserProfile: UserProfile | null;
-  onEdit: (post: ForumPost) => void;
-  onDeleteInitiate: (post: ForumPost) => void;
+  onReact: (postId: string, reactionType: 'likes' | 'gracias') => void;
 }) {
   return (
     <div className="space-y-4">
@@ -418,16 +311,7 @@ function ForumCategoryContent({
                   <span>{formatDate(post.fechaCreacion)}</span>
                 </CardDescription>
               </div>
-              {(currentUserId === post.autorId || currentUserProfile?.isAdmin) && (
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => onEdit(post)} aria-label="Editar">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => onDeleteInitiate(post)} aria-label="Eliminar">
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              )}
+              {/* Edit/Delete buttons removed as user identity is gone */}
             </div>
           </CardHeader>
           <CardContent>
@@ -438,9 +322,13 @@ function ForumCategoryContent({
                 <MessageSquare className="h-4 w-4"/> 
                 <span>{post.commentsCount || 0} comentarios</span>
             </div>
-            <div className="flex items-center gap-2">
-                <ThumbsUp className="h-4 w-4" /><span>{post.likes?.length || 0}</span>
-                <Heart className="h-4 w-4" /><span>{post.gracias?.length || 0}</span>
+            <div className="flex items-center gap-4">
+                <Button variant="ghost" size="sm" onClick={() => onReact(post.id, 'likes')}>
+                  <ThumbsUp className="h-4 w-4 mr-1" /><span>{post.likes || 0}</span>
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => onReact(post.id, 'gracias')}>
+                  <Heart className="h-4 w-4 mr-1" /><span>{post.gracias || 0}</span>
+                </Button>
             </div>
           </CardFooter>
         </Card>

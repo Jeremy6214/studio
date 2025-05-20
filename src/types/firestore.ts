@@ -1,40 +1,40 @@
 
-import type { Timestamp } from 'firebase/firestore';
-
-export interface UserProfile {
-  uid: string;
-  nombre: string;
-  correo: string;
-  fotoPerfil?: string;
-  tema?: 'light' | 'dark' | 'system';
-  idioma?: 'es' | 'en';
-  isAdmin?: boolean; // Nuevo campo para simular rol de admin
-  // configPreferencias?: Record<string, any>; // Example for additional settings
-}
+// Simplificando tipos para gestión local, si es necesario.
+// Opcionalmente, se pueden definir aquí tipos más simples para el estado local.
 
 export interface ForumPost {
   id: string;
   titulo: string;
   contenido: string;
-  autorId: string;
-  autorNombre?: string; // Denormalized for easier display
-  autorFoto?: string;   // Denormalized
-  fechaCreacion: Timestamp;
-  categoria: 'profesores' | 'estudiantes' | 'recursos'; // Ensure these match categories in your UI
-  likes: string[]; // Array of user UIDs who liked the post
-  gracias: string[]; // Array of user UIDs who thanked the post
+  autorNombre?: string; // Puede ser un campo de texto simple
+  autorFoto?: string;   // URL de imagen simple
+  fechaCreacion: Date; // Usar Date de JS
+  categoria: 'profesores' | 'estudiantes' | 'recursos';
+  likes: number; // Contador simple
+  gracias: number; // Contador simple
   commentsCount: number;
+  comments?: ForumComment[]; // Comentarios locales anidados
 }
 
 export interface ForumComment {
   id: string;
   contenido: string;
-  autorId: string;
-  autorNombre?: string; // Denormalized
-  autorFoto?: string;   // Denormalized
-  fecha: Timestamp;
-  respuestaA?: string | null; // ID of the parent comment, if it's a reply
-  likes: string[]; // Array of user UIDs
-  gracias: string[]; // Array of user UIDs
-  replies?: ForumComment[]; // Client-side property for building comment tree
+  autorNombre?: string; // Puede ser un campo de texto simple
+  autorFoto?: string;   // URL de imagen simple
+  fecha: Date; // Usar Date de JS
+  respuestaA?: string | null;
+  likes: number; // Contador simple
+  gracias: number; // Contador simple
+  replies?: ForumComment[];
 }
+
+// UserProfile ya no es relevante para la lógica principal sin autenticación.
+// export interface UserProfile {
+//   uid: string;
+//   nombre: string;
+//   correo: string;
+//   fotoPerfil?: string;
+//   tema?: 'light' | 'dark' | 'system';
+//   idioma?: 'es' | 'en';
+//   isAdmin?: boolean;
+// }

@@ -1,50 +1,38 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { Settings, LayoutList, Star, LogOut } from 'lucide-react';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase'; // Ensure auth is imported from your firebase config
-
+import { Settings, LayoutList, Star, LogOut, UserCircle } from 'lucide-react';
+// No importamos de Firebase
 
 export interface UserNavItem {
   title: string;
   href?: string;
   icon: LucideIcon;
-  action?: () => Promise<void>; // Action can be async
+  action?: () => void; // Ya no es async
   disabled?: boolean;
 }
 
+// Lista de items simplificada o vacía si no hay sesión de usuario.
+// Como no hay sesión de usuario, estas opciones no tienen mucho sentido.
+// Las dejaré comentadas o puedes eliminarlas.
 export const userNavItems: UserNavItem[] = [
-  {
-    title: 'Configuración',
-    href: '/settings',
-    icon: Settings,
-  },
-  {
-    title: 'Mis Foros',
-    href: '/my-forums',
-    icon: LayoutList,
-  },
-  {
-    title: 'Favoritos',
-    href: '/favorites',
-    icon: Star,
-  },
-  {
-    title: 'Cerrar Sesión',
-    icon: LogOut,
-    action: async () => {
-      try {
-        await signOut(auth);
-        // Optional: Redirect or UI update after sign-out can be handled by onAuthStateChanged listener in useFirebaseAuth or AppLayout
-        console.log("Usuario cerró sesión exitosamente.");
-        // Consider redirecting to login page or home after logout
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login'; // Or use Next.js router if available in this context
-        }
-      } catch (error) {
-        console.error("Error al cerrar sesión:", error);
-        // Handle error, perhaps with a toast notification if this function is called from a UI component
-      }
-    },
-  },
+  // {
+  //   title: 'Configuración',
+  //   href: '/settings',
+  //   icon: Settings,
+  // },
+  // {
+  //   title: 'Mis Foros',
+  //   href: '/my-forums',
+  //   icon: LayoutList,
+  // },
+  // {
+  //   title: 'Favoritos',
+  //   href: '/favorites',
+  //   icon: Star,
+  // },
+  // {
+  //   title: 'Iniciar Sesión', // Cambiado de Cerrar Sesión
+  //   href: '/login', // Asumimos una página de login placeholder
+  //   icon: UserCircle, 
+  // },
 ];
