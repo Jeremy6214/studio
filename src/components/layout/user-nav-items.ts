@@ -1,12 +1,15 @@
 
 import type { LucideIcon } from 'lucide-react';
 import { Settings, LayoutList, Star, LogOut } from 'lucide-react';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+
 
 export interface UserNavItem {
   title: string;
   href?: string;
   icon: LucideIcon;
-  action?: () => void; // For actions like logout
+  action?: () => void; 
   disabled?: boolean;
 }
 
@@ -19,21 +22,25 @@ export const userNavItems: UserNavItem[] = [
   {
     title: 'Mis Foros',
     href: '/my-forums',
-    icon: LayoutList, // Example icon, consider MessageSquare
+    icon: LayoutList,
   },
   {
     title: 'Favoritos',
     href: '/favorites',
     icon: Star,
   },
-  // Separator can be handled in layout
   {
     title: 'Cerrar Sesión',
     icon: LogOut,
-    action: () => {
-      // Placeholder for logout logic
-      console.log("Cerrar Sesión clickeado");
-      // Actual logout logic would go here (e.g., Firebase signOut)
+    action: async () => {
+      try {
+        await signOut(auth);
+        // La redirección o actualización de UI se maneja por el onAuthStateChanged listener
+        console.log("Usuario cerró sesión");
+      } catch (error) {
+        console.error("Error al cerrar sesión:", error);
+        // Manejar el error, quizás con un toast
+      }
     },
   },
 ];

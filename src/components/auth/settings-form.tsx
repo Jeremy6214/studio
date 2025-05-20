@@ -19,136 +19,187 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Mail, Lock, Image as ImageIcon, Palette, Languages, Save } from "lucide-react";
+import { User as UserIcon, Mail, Lock, Image as ImageIcon, Palette, Languages, Save } from "lucide-react"; // Renamed User to UserIcon
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
-
-// Mock Firebase Auth & Firestore interactions
-// In a real app, you'd use Firebase SDK here.
-// Example: import { getAuth, updateProfile, updatePassword, updateEmail } from "firebase/auth";
-// Example: import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+import { updateProfile, User as FirebaseUser, sendPasswordResetEmail } from "firebase/auth"; // Renamed User to FirebaseUser
+import type { UserProfile } from "@/types/firestore";
 
 const settingsFormSchema = z.object({
-  name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
-  email: z.string().email({ message: "Correo electrónico no válido." }),
-  photoURL: z.string().url({ message: "URL de imagen no válida." }).or(z.literal("")),
-  language: z.enum(["es", "en"], { message: "Debes seleccionar un idioma." }),
-  theme: z.enum(["system", "light", "dark"], { message: "Debes seleccionar un tema." }),
+  nombre: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
+  // email is not directly editable through this form for security, shown as disabled
+  fotoPerfil: z.string().url({ message: "URL de imagen no válida." }).or(z.literal("").optional()),
+  idioma: z.enum(["es", "en"], { message: "Debes seleccionar un idioma." }),
+  tema: z.enum(["system", "light", "dark"], { message: "Debes seleccionar un tema." }),
 });
 
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
-// Mock current user data - in a real app, this would come from Firebase Auth/Firestore
-const mockCurrentUser = {
-  uid: "mockUserId123",
-  name: "John Doe",
-  email: "john.doe@example.com",
-  photoURL: "https://placehold.co/100x100.png",
-};
+interface SettingsFormProps {
+  currentUser: FirebaseUser;
+}
 
-const mockUserPreferences = {
-  language: "es" as "es" | "en",
-  theme: "system" as "system" | "light" | "dark",
-};
-
-export function SettingsForm() {
+export function SettingsForm({ currentUser }: SettingsFormProps) {
   const { toast } = useToast();
-  const [currentUser, setCurrentUser] = useState(mockCurrentUser); // Replace with actual auth state
-  const [userPreferences, setUserPreferences] = useState(mockUserPreferences); // Replace with Firestore data
+  const [isLoading, setIsLoading] = useState(true);
+  const [initialPhotoURL, setInitialPhotoURL] = useState(currentUser.photoURL || "");
+
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsFormSchema),
-    defaultValues: {
-      name: currentUser.name || "",
-      email: currentUser.email || "",
-      photoURL: currentUser.photoURL || "",
-      language: userPreferences.language || "es",
-      theme: userPreferences.theme || "system",
+    defaultValues: async () => {
+      setIsLoading(true);
+      const userDocRef = doc(db, "usuarios", currentUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      let dbPreferences: Partial<UserProfile> = {};
+      if (userDocSnap.exists()) {
+        dbPreferences = userDocSnap.data() as UserProfile;
+      }
+      setInitialPhotoURL(currentUser.photoURL || dbPreferences.fotoPerfil || "");
+      setIsLoading(false);
+      return {
+        nombre: currentUser.displayName || dbPreferences.nombre || "",
+        fotoPerfil: currentUser.photoURL || dbPreferences.fotoPerfil || "",
+        idioma: dbPreferences.idioma || "es",
+        tema: dbPreferences.tema || "system",
+      };
     },
   });
-  
-  // Effect to reset form if currentUser or userPreferences change (e.g., after fetching from Firebase)
+
   useEffect(() => {
-    form.reset({
-      name: currentUser.name || "",
-      email: currentUser.email || "",
-      photoURL: currentUser.photoURL || "",
-      language: userPreferences.language || "es",
-      theme: userPreferences.theme || "system",
-    });
-  }, [currentUser, userPreferences, form]);
+    // For theme changes from settings to apply immediately if system theme is selected
+    const currentTheme = form.watch("tema");
+    if (currentTheme === "system") {
+       handleThemeChange(currentTheme, false); // Apply system preference without toast
+    }
+  }, [form.watch("tema")]);
 
 
-  const handleChangePassword = () => {
-    // const auth = getAuth();
-    // const user = auth.currentUser;
-    // if (user) { /* Send password reset email or navigate to change password flow */ }
-    toast({
-      title: "Cambiar Contraseña",
-      description: "Funcionalidad de cambio de contraseña no implementada en esta demo. Se enviaría un correo de restablecimiento.",
-      variant: "default",
-    });
+  const handleChangePassword = async () => {
+    if (!currentUser.email) {
+      toast({ title: "Error", description: "No hay correo electrónico asociado a esta cuenta.", variant: "destructive" });
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, currentUser.email);
+      toast({
+        title: "Correo Enviado",
+        description: "Se ha enviado un enlace para restablecer tu contraseña a tu correo electrónico.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error al enviar correo",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
-
-  // Handle theme change and apply it
-  const handleThemeChange = (themeValue: "system" | "light" | "dark") => {
-    localStorage.setItem("themeSetting", themeValue); // Store user's explicit choice
+  
+  const handleThemeChange = (themeValue: "system" | "light" | "dark", showToast: boolean = true) => {
+    localStorage.setItem("themeSetting", themeValue);
+    let appliedTheme: 'light' | 'dark';
     if (themeValue === "light") {
       document.documentElement.classList.remove("dark");
       localStorage.setItem("theme", "light");
+      appliedTheme = 'light';
     } else if (themeValue === "dark") {
       document.documentElement.classList.add("dark");
       localStorage.setItem("theme", "dark");
+      appliedTheme = 'dark';
     } else { // System
-      localStorage.removeItem("theme"); // Let browser/OS decide based on 'prefers-color-scheme'
+      localStorage.removeItem("theme"); 
       if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
         document.documentElement.classList.add("dark");
+        appliedTheme = 'dark';
       } else {
         document.documentElement.classList.remove("dark");
+        appliedTheme = 'light';
       }
+    }
+     if (showToast) {
+      toast({ title: `Tema ${appliedTheme === 'dark' ? 'Oscuro' : 'Claro'} Activado` });
     }
   };
 
 
   async function onSubmit(data: SettingsFormValues) {
+    setIsLoading(true);
     toast({
       title: "Guardando Configuración...",
       description: "Tus cambios están siendo procesados.",
     });
 
     try {
-      // Simulate Firebase Auth update for name and photoURL
-      // const auth = getAuth();
-      // if (auth.currentUser) {
-      //   await updateProfile(auth.currentUser, { displayName: data.name, photoURL: data.photoURL });
-      // }
-      setCurrentUser(prev => ({ ...prev, name: data.name, photoURL: data.photoURL }));
-      
-      // Simulate Firestore update for preferences
-      // const db = getFirestore();
-      // const userPrefsRef = doc(db, "userPreferences", auth.currentUser.uid);
-      // await setDoc(userPrefsRef, { language: data.language, theme: data.theme }, { merge: true });
-      setUserPreferences({ language: data.language, theme: data.theme });
+      // Update Firebase Auth profile
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, {
+          displayName: data.nombre,
+          photoURL: data.fotoPerfil || null, // Send null if empty to potentially clear it
+        });
+      }
 
-      // Apply theme immediately
-      handleThemeChange(data.theme);
+      // Update Firestore document
+      const userDocRef = doc(db, "usuarios", currentUser.uid);
+      const userProfileData: Partial<UserProfile> = {
+        nombre: data.nombre,
+        correo: currentUser.email || "", // Email from Auth, not form
+        fotoPerfil: data.fotoPerfil || "",
+        idioma: data.idioma,
+        tema: data.tema,
+        uid: currentUser.uid,
+      };
+      await setDoc(userDocRef, userProfileData, { merge: true });
       
-      // Simulate language change (in a real app, this would involve i18n context/library)
-      localStorage.setItem("language", data.language);
-      // Force a reload or update context to reflect language changes globally
-      // For this demo, we'll just show a toast.
+      setInitialPhotoURL(data.fotoPerfil || ""); // Update avatar on successful save
+
+      handleThemeChange(data.tema);
+      localStorage.setItem("language", data.idioma);
+      
       toast({
         title: "Configuración Guardada",
-        description: "Tus preferencias han sido actualizadas. El cambio de idioma completo requiere recargar la aplicación o un sistema i18n.",
+        description: "Tus preferencias han sido actualizadas.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving settings:", error);
       toast({
         title: "Error al Guardar",
-        description: "No se pudieron guardar los cambios. Inténtalo de nuevo.",
+        description: error.message || "No se pudieron guardar los cambios. Inténtalo de nuevo.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
+  }
+
+  if (form.formState.isLoading || isLoading) { // Check form loading state too
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Skeleton className="h-20 w-20 rounded-full" />
+          <div className="flex-grow space-y-2">
+            <Skeleton className="h-4 w-1/4" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
+        <Separator />
+        <Skeleton className="h-4 w-1/4 mb-2" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-4 w-1/4 mb-2 mt-2" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-1/3 mt-2" />
+        <Separator />
+        <Skeleton className="h-6 w-1/3 mb-2" />
+        <Skeleton className="h-10 w-full" />
+        <Separator />
+        <Skeleton className="h-6 w-1/3 mb-2" />
+        <Skeleton className="h-10 w-full" />
+        <Button size="lg" disabled>
+          <Save className="mr-2 h-4 w-4" /> Guardando...
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -156,17 +207,17 @@ export function SettingsForm() {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <div className="flex items-center space-x-4">
           <Avatar className="h-20 w-20">
-            <AvatarImage src={form.watch("photoURL") || "https://placehold.co/100x100.png?text=JD"} alt={form.watch("name")} data-ai-hint="user avatar placeholder" />
-            <AvatarFallback>{form.watch("name")?.substring(0,2).toUpperCase() || "JD"}</AvatarFallback>
+            <AvatarImage src={form.watch("fotoPerfil") || initialPhotoURL || "https://placehold.co/100x100.png?text=U"} alt={form.watch("nombre")} data-ai-hint="user avatar placeholder" />
+            <AvatarFallback>{form.watch("nombre")?.substring(0,2).toUpperCase() || currentUser.email?.substring(0,2).toUpperCase() || "U"}</AvatarFallback>
           </Avatar>
           <FormField
             control={form.control}
-            name="photoURL"
+            name="fotoPerfil"
             render={({ field }) => (
               <FormItem className="flex-grow">
                 <FormLabel className="flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-muted-foreground" />URL de Foto de Perfil</FormLabel>
                 <FormControl>
-                  <Input placeholder="https://ejemplo.com/imagen.png" {...field} />
+                  <Input placeholder="https://ejemplo.com/imagen.png" {...field} value={field.value ?? ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -178,10 +229,10 @@ export function SettingsForm() {
 
         <FormField
           control={form.control}
-          name="name"
+          name="nombre"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="flex items-center"><User className="mr-2 h-4 w-4 text-muted-foreground" />Nombre Completo</FormLabel>
+              <FormLabel className="flex items-center"><UserIcon className="mr-2 h-4 w-4 text-muted-foreground" />Nombre Completo</FormLabel>
               <FormControl>
                 <Input placeholder="Tu nombre" {...field} />
               </FormControl>
@@ -190,26 +241,19 @@ export function SettingsForm() {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />Correo Electrónico</FormLabel>
-              <FormControl>
-                <Input placeholder="tu@correo.com" {...field} disabled />
-              </FormControl>
-              <FormDescription>
-                El correo electrónico no se puede cambiar directamente aquí. Para cambios, contacta al soporte.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <FormItem>
+          <FormLabel className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />Correo Electrónico</FormLabel>
+          <FormControl>
+            <Input placeholder="tu@correo.com" value={currentUser.email || ""} disabled />
+          </FormControl>
+          <FormDescription>
+            El correo electrónico no se puede cambiar directamente aquí.
+          </FormDescription>
+        </FormItem>
         
         <FormItem>
           <FormLabel className="flex items-center"><Lock className="mr-2 h-4 w-4 text-muted-foreground" />Contraseña</FormLabel>
-          <Button type="button" variant="outline" onClick={handleChangePassword}>
+          <Button type="button" variant="outline" onClick={handleChangePassword} disabled={isLoading}>
             Cambiar Contraseña
           </Button>
           <FormDescription>
@@ -222,7 +266,7 @@ export function SettingsForm() {
 
         <FormField
           control={form.control}
-          name="theme"
+          name="tema"
           render={({ field }) => (
             <FormItem className="space-y-3">
               <FormLabel>Tema Visual</FormLabel>
@@ -265,11 +309,11 @@ export function SettingsForm() {
 
         <FormField
           control={form.control}
-          name="language"
+          name="idioma"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Idioma de la Aplicación</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona un idioma" />
@@ -281,15 +325,15 @@ export function SettingsForm() {
                 </SelectContent>
               </Select>
               <FormDescription>
-                Esto cambiará el idioma de la interfaz de usuario.
+                Esto cambiará el idioma de la interfaz de usuario (simulado para algunos elementos).
               </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <Button type="submit" size="lg">
-          <Save className="mr-2 h-4 w-4" /> Guardar Cambios
+        <Button type="submit" size="lg" disabled={isLoading || form.formState.isSubmitting}>
+          <Save className="mr-2 h-4 w-4" /> {isLoading || form.formState.isSubmitting ? "Guardando..." : "Guardar Cambios"}
         </Button>
       </form>
     </Form>
