@@ -3,13 +3,13 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation'; // useRouter import
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { navItems } from './nav-items'; 
 import type { NavItem } from './nav-items';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Globe, Menu, X, LogOut, Settings, LayoutList, Star } from 'lucide-react'; 
+import { Globe, Menu, X, LogOut, Settings, LayoutList, Star, User as UserIcon } from 'lucide-react'; 
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,12 +32,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { doc, updateDoc } from 'firebase/firestore'; 
+import { doc, updateDoc, setDoc, getDoc } from 'firebase/firestore'; // setDoc, getDoc
 import { db } from '@/lib/firebase'; 
-import type { UserNavItem as UserNavType } from './user-nav-items'; // Renamed import to avoid conflict
-import { signOut } from 'firebase/auth';
+import type { UserNavItem as UserNavType } from './user-nav-items';
+import { signOut as firebaseSignOut } from 'firebase/auth'; // Renamed to avoid conflict
 import { auth } from '@/lib/firebase';
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { Skeleton } from '../ui/skeleton';
+import { StudyAssistantDialog } from '@/components/ai/study-assistant-dialog'; // Import AI Assistant
 
 type Theme = "light" | "dark" | "system";
 
@@ -49,7 +50,7 @@ interface AppLayoutTextsType {
   searchSubmitted: string;
   searchSubmittedDesc: (query: string) => string;
   mainNavigation: string;
-  userNavigation: string; // For mobile sheet
+  userNavigation: string;
   mobileMenuTitle: string;
   navPanel: string;
   navForums: string;
@@ -68,7 +69,7 @@ const appLayoutTexts: Record<'es' | 'en', AppLayoutTextsType> = {
     searchPlaceholder: "Buscar en la plataforma...",
     languageChanged: "Idioma Cambiado",
     languageChangedDesc: (lang: string) => `El idioma de la interfaz ahora es ${lang}.`,
-    languageSaveError: "Error al guardar el idioma en la nube.",
+    languageSaveError: "Error al guardar el idioma.",
     searchSubmitted: "Búsqueda Enviada (Simulada)",
     searchSubmittedDesc: (query: string) => `Has buscado: "${query}". La funcionalidad completa de búsqueda no está implementada.`,
     mainNavigation: "Navegación Principal",
@@ -89,7 +90,7 @@ const appLayoutTexts: Record<'es' | 'en', AppLayoutTextsType> = {
     searchPlaceholder: "Search platform...",
     languageChanged: "Language Changed",
     languageChangedDesc: (lang: string) => `Interface language is now ${lang}.`,
-    languageSaveError: "Error saving language preference to the cloud.",
+    languageSaveError: "Error saving language preference.",
     searchSubmitted: "Search Submitted (Simulated)",
     searchSubmittedDesc: (query: string) => `You searched for: "${query}". Full search functionality not implemented.`,
     mainNavigation: "Main Navigation",
@@ -149,8 +150,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   
   const T = appLayoutTexts[currentLanguage];
 
-  const applyTheme = React.useCallback((themeToApply: Theme) => {
-    if (typeof window === 'undefined') return;
+  const applyTheme = React.useCallback((themeToApply: Theme | undefined) => {
+    if (typeof window === 'undefined' || !themeToApply) return;
     document.documentElement.classList.remove("light", "dark");
     if (themeToApply === "dark") {
       document.documentElement.classList.add("dark");
@@ -159,50 +160,44 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     } else { 
       if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
         document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
       }
     }
   }, []);
 
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-  
     let themeToApply: Theme = 'system';
     let langToApply: 'es' | 'en' = 'es';
   
     if (loading) {
-      // While Firestore data is loading, apply from localStorage to reduce FOUC
+      // While Firestore data is loading, try to apply from localStorage to reduce FOUC
       const storedTheme = localStorage.getItem("theme") as Theme | null;
       if (storedTheme) applyTheme(storedTheme);
   
       const storedLang = localStorage.getItem("language") as 'es' | 'en' | null;
       if (storedLang) setCurrentLanguage(storedLang);
-      // Don't return; allow the effect to continue if userProfile becomes available
-      // or if loading finishes and userProfile is still null.
-    }
-  
-    // Once loading is false, Firestore data (or lack thereof) is definitive
-    if (!loading) {
+    } else {
+      // Once loading is false, userProfile (from Firestore or default) is available
       if (userProfile) {
-        // Firestore is the source of truth
         themeToApply = userProfile.tema || 'system';
         langToApply = userProfile.idioma || 'es';
-        localStorage.setItem("theme", themeToApply); // Keep localStorage in sync
-        localStorage.setItem("language", langToApply); // Keep localStorage in sync
+        localStorage.setItem("theme", themeToApply);
+        localStorage.setItem("language", langToApply);
       } else {
-        // No profile from Firestore (e.g., error, or new user before profile creation is fully synced)
-        // Fallback to localStorage as the best guess, or set default if nothing in LS
+        // No profile from Firestore, fallback to localStorage or defaults
         const storedTheme = localStorage.getItem("theme") as Theme | null;
         if (storedTheme) {
           themeToApply = storedTheme;
         } else {
-          localStorage.setItem("theme", themeToApply); // Store default 'system'
+          localStorage.setItem("theme", 'system'); 
         }
   
         const storedLang = localStorage.getItem("language") as 'es' | 'en' | null;
         if (storedLang) {
           langToApply = storedLang;
         } else {
-          localStorage.setItem("language", langToApply); // Store default 'es'
+          localStorage.setItem("language", 'es');
         }
       }
     }
@@ -238,32 +233,35 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       description: T.languageChangedDesc(langName),
     });
 
-    if (user && user.uid && userProfile) {
+    if (user && user.uid) { // User is simulated, UID is "uid_test"
       try {
         const userDocRef = doc(db, "users", user.uid);
-        await updateDoc(userDocRef, { idioma: lang });
-        setUserProfileState({...userProfile, idioma: lang});
+        // Ensure document exists before updating, or use setDoc with merge
+        const docSnap = await getDoc(userDocRef);
+        if (docSnap.exists()) {
+            await updateDoc(userDocRef, { idioma: lang });
+        } else {
+            await setDoc(userDocRef, { idioma: lang }, { merge: true });
+        }
+        // Update local profile state if available
+        if (userProfile) {
+            setUserProfileState({...userProfile, idioma: lang});
+        } else {
+            // If profile wasn't loaded yet but we're setting lang, create minimal profile
+             setUserProfileState({ uid: user.uid, nombre: user.displayName || "", correo: user.email || "", idioma: lang, tema: (localStorage.getItem("theme") as Theme || "system")});
+        }
       } catch (error) {
         console.error("Error updating language in Firestore:", error);
         toast({ title: "Error", description: T.languageSaveError, variant: "destructive" });
       }
-    } else if (user && user.uid) { // User exists, but profile might not be loaded yet or doesn't exist
-        try {
-            const userDocRef = doc(db, "users", user.uid);
-            await updateDoc(userDocRef, { idioma: lang });
-            // If userProfile becomes available later, it will reflect this change
-        } catch (error) {
-            console.error("Error updating language in Firestore (no profile):", error);
-            toast({ title: "Error", description: T.languageSaveError, variant: "destructive" });
-        }
     }
   };
   
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await firebaseSignOut(auth); // Use renamed import
       toast({ title: "Sesión Cerrada", description: "Has cerrado tu sesión exitosamente." });
-      router.push('/home'); // Redirect to home or a login page if you had one
+      router.push('/home'); // Or redirect to a login page: router.push('/login');
     } catch (error) {
       console.error("Error signing out: ", error);
       toast({ title: "Error", description: "No se pudo cerrar la sesión.", variant: "destructive" });
@@ -271,13 +269,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   };
   
   const userNavItemsList: UserNavType[] = [
-    { title: T.navSettings, href: '/settings', icon: Settings },
-    { title: T.navMyForums, href: '/my-forums', icon: LayoutList, disabled: false }, 
-    { title: T.navFavorites, href: '/favorites', icon: Star, disabled: false }, 
+    { title: "Configuración", href: '/settings', icon: Settings }, // Will be translated by getNavItemTitle
+    { title: "Mis Foros", href: '/my-forums', icon: LayoutList, disabled: !user }, 
+    { title: "Favoritos", href: '/favorites', icon: Star, disabled: !user }, 
     { 
-      title: T.navLogout, 
+      title: "Cerrar Sesión", // Base title, will be translated
       icon: LogOut, 
-      action: handleLogout
+      action: handleLogout,
+      disabled: !user
     },
   ];
 
@@ -295,17 +294,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         default: return item.title;
       }
     }
-    // For items without href (like Logout), check title directly
     const logoutTitleEs = appLayoutTexts.es.navLogout;
     const logoutTitleEn = appLayoutTexts.en.navLogout;
-    if (item.title === logoutTitleEs || item.title === logoutTitleEn) {
+    if (item.title === logoutTitleEs || item.title === logoutTitleEn || item.title === "Cerrar Sesión" || item.title === "Log Out") {
         return langT.navLogout;
     }
 
     return item.title;
   };
   
-  if (loading && !user) { 
+  if (loading && !userProfile) { // Show skeleton if loading and no profile yet (initial load)
     return (
       <div className="flex min-h-screen w-full animate-pulse">
         <div className="flex flex-col flex-1">
@@ -324,8 +322,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </header>
           <main className="flex-1 p-4 md:p-6 lg:p-8 bg-muted/40">
-             <div className="h-10 w-1/2 bg-muted rounded-lg mb-4"></div>
-             <div className="h-64 w-full bg-muted rounded-lg"></div> 
+             <Skeleton className="h-10 w-1/2 bg-muted rounded-lg mb-4" />
+             <Skeleton className="h-64 w-full bg-muted rounded-lg" /> 
           </main>
         </div>
       </div>
@@ -348,13 +346,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <SheetContent side="left" className="flex flex-col p-0 max-w-xs w-full sm:max-w-sm bg-card border-r">
                 <div className="flex h-16 items-center justify-between px-4 border-b">
                   <Link href="/home" className="flex items-center gap-2" onClick={() => setIsMobileSheetOpen(false)}>
-                    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" className="h-8 w-8">
-                      <circle cx="20" cy="20" r="18" stroke="hsl(var(--foreground))" strokeWidth="1.5" fill="hsl(var(--primary))" />
-                      <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fontSize="16" fontWeight="bold" fill="hsl(var(--primary-foreground))">
-                        EC
-                      </text>
+                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="h-7 w-7">
+                        <rect width="256" height="256" fill="none"></rect>
+                        <path d="M41.4,104.6C22.8,123.1,16,144,16,160a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,104.6Z" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
+                        <path d="M113.4,104.6c18.6-18.5,25.4-39.4,25.4-55.4a64,64,0,0,0-128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,0,50.2,22.1A71.8,71.8,0,0,0,113.4,104.6Z" transform="translate(256 48) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
+                        <path d="M41.4,151.4c-18.6,18.5-25.4,39.4-25.4,55.4a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,151.4Z" transform="translate(48 256) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
+                        <path d="M113.4,151.4c-18.6-18.5-25.4-39.4-25.4-55.4a64,64,0,0,1,128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,1-50.2,22.1A71.8,71.8,0,0,1,113.4,151.4Z" transform="translate(256 208) rotate(180)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
                     </svg>
-                    <span className="font-bold text-lg text-foreground">EduConnect</span>
+                    <span className="font-bold text-lg text-foreground">DarkAISchool</span>
                   </Link>
                   <SheetClose asChild>
                     <Button variant="ghost" size="icon"> <X className="h-5 w-5" /> <span className="sr-only">Cerrar menú</span></Button>
@@ -390,8 +389,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                           )}
                           onClick={(e) => {
                             if (item.disabled) e.preventDefault();
-                            // Close sheet on nav even if disabled, action handles actual prevention
                           }}
+                          aria-disabled={item.disabled}
+                          tabIndex={item.disabled ? -1 : undefined}
                         >
                           <item.icon className="h-4 w-4" />
                           {getNavItemTitle(item, T)}
@@ -439,11 +439,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </Sheet>
             
             <Link href="/home" className="flex items-center gap-2 md:mr-auto">
-              <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" className="h-8 w-8">
-                  <circle cx="20" cy="20" r="18" stroke="hsl(var(--foreground))" strokeWidth="1.5" fill="hsl(var(--primary))" />
-                  <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fontSize="16" fontWeight="bold" fill="hsl(var(--primary-foreground))">EC</text>
-              </svg>
-              <span className="font-bold text-xl text-foreground">EduConnect</span>
+                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="h-8 w-8">
+                    <rect width="256" height="256" fill="none"></rect>
+                    <path d="M41.4,104.6C22.8,123.1,16,144,16,160a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,104.6Z" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
+                    <path d="M113.4,104.6c18.6-18.5,25.4-39.4,25.4-55.4a64,64,0,0,0-128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,0,50.2,22.1A71.8,71.8,0,0,0,113.4,104.6Z" transform="translate(256 48) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
+                    <path d="M41.4,151.4c-18.6,18.5-25.4,39.4-25.4,55.4a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,151.4Z" transform="translate(48 256) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
+                    <path d="M113.4,151.4c-18.6-18.5-25.4-39.4-25.4-55.4a64,64,0,0,1,128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,1-50.2,22.1A71.8,71.8,0,0,1,113.4,151.4Z" transform="translate(256 208) rotate(180)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
+                </svg>
+              <span className="font-bold text-xl text-foreground">DarkAISchool</span>
             </Link>
             
             <div className="hidden md:flex flex-1 justify-center">
@@ -477,13 +480,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {user && (
+              {loading ? (
+                 <Skeleton className="h-9 w-9 rounded-full" />
+              ) : user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                       <Avatar className="h-9 w-9">
                         <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "Usuario"} data-ai-hint="user avatar"/>
-                        <AvatarFallback>{user.displayName?.substring(0,2).toUpperCase() || "ET"}</AvatarFallback>
+                        <AvatarFallback>{user.displayName?.substring(0,2).toUpperCase() || (user.email ? user.email.substring(0,2).toUpperCase() : "U")}</AvatarFallback>
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
@@ -518,6 +523,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
+              ) : (
+                 <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={() => router.push('/home')} aria-label={currentLanguage === 'es' ? "Iniciar sesión (Simulado)" : "Log In (Simulated)"}>
+                           <UserIcon className="h-5 w-5" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>{currentLanguage === 'es' ? "Iniciar sesión (Simulado)" : "Log In (Simulated)"}</p>
+                    </TooltipContent>
+                 </Tooltip>
               )}
             </div>
           </header>
@@ -525,10 +541,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <main className="flex-1 p-4 md:p-6 lg:p-8 bg-muted/40 overflow-auto">
             {children}
           </main>
+          <StudyAssistantDialog currentLanguage={currentLanguage} />
         </div>
       </div>
     </TooltipProvider>
   );
 }
-
-    
