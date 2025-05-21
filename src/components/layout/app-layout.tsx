@@ -16,7 +16,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuGroup,
-  DropdownMenuLabel
+  DropdownMenuLabel,
+  DropdownMenuTrigger, // Added missing import
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -117,7 +118,7 @@ type Theme = "light" | "dark" | "system";
 
 export function AppLayout({ children }: { children: React.ReactNode; }) {
   const { toast } = useToast();
-  const { user, loading: authLoading, userProfile, setUserProfileState } = useFirebaseAuth();
+  const { user, loading: authLoading, userProfile, setUserProfileState, loading: userProfileLoading } = useFirebaseAuth();
   const [currentLanguage, setCurrentLanguage] = React.useState<'es' | 'en'>('es');
   const [isMobileSheetOpen, setIsMobileSheetOpen] = React.useState(false);
   const [hasMounted, setHasMounted] = React.useState(false);
@@ -137,8 +138,9 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
     if (themeToApply === "dark") {
       document.documentElement.classList.add("dark");
     } else if (themeToApply === "light") {
-      // document.documentElement.classList.add("light"); // Light is default
-    } else {
+      // Light is default, no class needed unless you explicitly want .light
+      // document.documentElement.classList.add("light"); 
+    } else { // system
       if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
         document.documentElement.classList.add("dark");
       } else {
@@ -146,36 +148,45 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
       }
     }
   }, []);
-
+  
   React.useEffect(() => {
     if (!hasMounted) return;
-
+  
     let themeApplied: Theme = 'system';
     let langApplied: 'es' | 'en' = 'es';
-
+  
     if (authLoading) {
+      // While auth is loading, use localStorage as primary source to avoid FOUC
       const storedTheme = localStorage.getItem("theme") as Theme | null;
       if (storedTheme) themeApplied = storedTheme;
+      
       const storedLang = localStorage.getItem("language") as 'es' | 'en' | null;
       if (storedLang) langApplied = storedLang;
     } else {
+      // Auth has loaded, prioritize userProfile from Firebase
       if (userProfile) {
         themeApplied = userProfile.tema || 'system';
         langApplied = userProfile.idioma || 'es';
+        // Sync localStorage with Firestore values
         localStorage.setItem("theme", themeApplied);
         localStorage.setItem("language", langApplied);
       } else {
+        // No userProfile from Firebase, fallback to localStorage or defaults
         const storedTheme = localStorage.getItem("theme") as Theme | null;
         themeApplied = storedTheme || 'system';
-        localStorage.setItem("theme", themeApplied);
+        localStorage.setItem("theme", themeApplied); // Ensure localStorage is set
+  
         const storedLang = localStorage.getItem("language") as 'es' | 'en' | null;
         langApplied = storedLang || 'es';
-        localStorage.setItem("language", langApplied);
+        localStorage.setItem("language", langApplied); // Ensure localStorage is set
       }
     }
+    
     applyTheme(themeApplied);
     setCurrentLanguage(langApplied);
+  
   }, [userProfile, authLoading, applyTheme, hasMounted]);
+
 
   React.useEffect(() => {
     if (isMobileSheetOpen && hasMounted) {
@@ -211,9 +222,12 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
         const userDocRef = doc(db, "users", user.uid);
         const updatedProfileData: Partial<UserProfileType> = { idioma: lang };
         
+        // Optimistic update to local state
         if (userProfile) {
             setUserProfileState({ ...userProfile, ...updatedProfileData });
         } else {
+            // If userProfile was null, construct a new one to set locally
+            // This assumes a base structure, might need more robust default creation
             const baseProfile: UserProfileType = {
                 uid: user.uid,
                 nombre: user.displayName || "Estudiante de Pruebas",
@@ -221,13 +235,16 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
                 tema: (localStorage.getItem("theme") as Theme) || "system",
                 idioma: lang,
                 fotoPerfil: user.photoURL || `https://placehold.co/40x40.png?text=ET`,
-                isAdmin: false,
+                isAdmin: false, // Default isAdmin to false
             };
             setUserProfileState(baseProfile);
-            await setDoc(userDocRef, baseProfile, { merge: true });
-            return; 
+            // Attempt to setDoc in Firestore for a new profile, or update if it somehow exists
+             await setDoc(userDocRef, baseProfile, { merge: true });
+            return; // Return early as we've handled the state and Firestore
         }
+        // If userProfile exists, just update it in Firestore
         await updateDoc(userDocRef, updatedProfileData);
+
       } catch (error) {
         console.error("Error updating language in Firestore:", error);
         toast({ title: "Error de Sincronización", description: T.languageSaveError, variant: "destructive" });
@@ -239,8 +256,7 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
     try {
       await firebaseSignOut(auth);
       toast({ title: T.navLogout, description: "Has cerrado tu portal en DarkAISchool." });
-      // Consider redirecting to a login page or home page after logout
-      // router.push('/login'); 
+      router.push('/home'); // Redirect to home or login page after logout
     } catch (error) {
       console.error("Error signing out: ", error);
       toast({ title: "Error de Cierre", description: "No se pudo cerrar la sesión.", variant: "destructive" });
@@ -248,38 +264,30 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
   };
   
   const getNavItemTitle = React.useCallback((item: NavItem | UserNavItem, langT: AppLayoutTextsType): string => {
-    if ('key' in item && typeof item.key === 'string') { 
-      switch (item.key) {
+    const key = 'key' in item ? item.key : (item as UserNavItem).key;
+    if (typeof key === 'string') {
+      switch (key) {
         case 'home': return langT.navPanel;
         case 'forums': return langT.navForums;
         case 'recovery-access': return langT.navRecovery;
         case 'study-materials': return langT.navMaterials;
-        default: return item.title;
+        case 'settings': return langT.navSettings;
+        case 'aiAssistant': return langT.navAiAssistant;
+        case 'myForums': return langT.navMyForums;
+        case 'favorites': return langT.navFavorites;
+        case 'logout': return langT.navLogout;
+        default: return item.title; // Fallback to item.title if key doesn't match
       }
-    } else { 
-        const detail = userNavItemsListDetails.find(d => d.defaultTitle === item.title || (d.href === (item as UserNavItem).href));
-        if(detail) {
-            switch (detail.key) {
-                case 'settings': return langT.navSettings;
-                case 'aiAssistant': return langT.navAiAssistant;
-                case 'myForums': return langT.navMyForums;
-                case 'favorites': return langT.navFavorites;
-                case 'logout': return langT.navLogout;
-                default: return item.title;
-            }
-        }
     }
     return item.title;
   }, []);
 
   const userNavItemsList: UserNavItem[] = React.useMemo(() =>
     userNavItemsListDetails.map(detail => ({
-      title: getNavItemTitle({ ...detail, title: detail.defaultTitle } as UserNavItem, T),
-      href: detail.href,
-      icon: detail.icon,
+      ...detail, // Spread detail first
+      title: getNavItemTitle({ ...detail, title: detail.defaultTitle } as UserNavItem, T), // Then override title
       action: detail.actionKey === 'logoutAction' ? handleLogout : undefined,
-      disabled: authLoading && detail.key !== 'settings',
-      key: detail.key,
+      disabled: authLoading && detail.key !== 'settings' && detail.key !== 'logout', // Logout should always be enabled if user obj exists
     })), [T, handleLogout, getNavItemTitle, authLoading]);
 
   const mainNavItemsList: NavItem[] = React.useMemo(() =>
@@ -288,45 +296,45 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
       title: getNavItemTitle(item, T),
     })), [T, getNavItemTitle]);
 
-  const UserDesktopSidebar = () => {
+  const UserDesktopSidebar = React.memo(function UserDesktopSidebarComponent() {
     const [isCollapsed, setIsCollapsed] = React.useState(false);
     const [sidebarHasMounted, setSidebarHasMounted] = React.useState(false);
 
     React.useEffect(() => {
       setSidebarHasMounted(true);
       if (typeof window !== 'undefined') {
-        const storedState = localStorage.getItem('sidebarCollapsed_v2');
+        const storedState = localStorage.getItem('sidebarCollapsed_v3');
         if (storedState !== null) {
           try {
             setIsCollapsed(JSON.parse(storedState));
           } catch (e) {
-            console.error("Error parsing sidebarCollapsed_v2 from localStorage", e);
+            console.error("Error parsing sidebarCollapsed_v3 from localStorage", e);
             setIsCollapsed(false);
           }
         } else {
-          setIsCollapsed(false);
+          setIsCollapsed(false); // Default to not collapsed if nothing in localStorage
         }
       }
     }, []);
-
+    
     const toggleCollapse = React.useCallback(() => {
       if (sidebarHasMounted) {
         setIsCollapsed(prevState => {
           const newState = !prevState;
-          localStorage.setItem('sidebarCollapsed_v2', JSON.stringify(newState));
+          localStorage.setItem('sidebarCollapsed_v3', JSON.stringify(newState));
           return newState;
         });
       }
     }, [sidebarHasMounted]);
 
-    if (!user || authLoading || !sidebarHasMounted) {
+    if (!user || !sidebarHasMounted) { // Don't render sidebar if no user or not mounted yet
       return null;
     }
-
+    
     return (
       <aside className={cn(
         "hidden md:fixed md:inset-y-0 md:left-0 md:z-40 md:flex md:flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out text-sidebar-foreground shadow-lg",
-        isCollapsed ? "md:w-20" : "md:w-60"
+        isCollapsed ? "md:w-20" : "md:w-64" // Increased width for non-collapsed
       )}
       >
         <div className={cn("flex items-center border-b border-sidebar-border px-4", isCollapsed ? "justify-center h-16" : "h-16")}>
@@ -386,7 +394,7 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
         </ScrollArea>
          {user && !isCollapsed && (
             <div className="mt-auto p-3 border-t border-sidebar-border">
-              { authLoading ? (
+              { userProfileLoading ? (
                 <div className="flex items-center gap-3">
                   <Skeleton className="h-9 w-9 rounded-full bg-muted" />
                   <div className="space-y-1.5">
@@ -412,12 +420,13 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
           )}
       </aside>
     );
-  };
+  });
+  UserDesktopSidebar.displayName = 'UserDesktopSidebar';
 
-  if (!hasMounted || authLoading) {
+  if (!hasMounted || authLoading) { // Keep authLoading check for initial page structure
     return (
        <div className="flex min-h-screen w-full animate-pulse bg-background">
-        <div className="hidden md:flex md:w-60 flex-col border-r bg-sidebar p-4 space-y-3">
+        <div className="hidden md:flex md:w-64 flex-col border-r bg-sidebar p-4 space-y-3">
             <Skeleton className="h-8 w-3/4 bg-muted" />
             {[...Array(5)].map((_,i) => <Skeleton key={i} className="h-9 w-full bg-muted rounded-md" />)}
             <div className="mt-auto space-y-2">
@@ -447,9 +456,9 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
     );
   }
   
-  const sidebarMarginClass = (user && !authLoading) 
-    ? (localStorage.getItem('sidebarCollapsed_v2') === 'true' ? "md:ml-20" : "md:ml-60") 
-    : "md:ml-0";
+  const sidebarWidthClass = (typeof window !== 'undefined' && localStorage.getItem('sidebarCollapsed_v3') === 'true' && user && !authLoading) 
+    ? "md:ml-20" 
+    : (user && !authLoading ? "md:ml-64" : "md:ml-0");
 
   return (
     <TooltipProvider>
@@ -458,7 +467,7 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
         
         <div className={cn(
           "flex flex-col flex-1 transition-all duration-300 ease-in-out",
-          sidebarMarginClass
+          sidebarWidthClass
         )}>
           <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-background/80 backdrop-blur-sm px-4 sm:px-6 shadow-sm">
             <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
@@ -495,7 +504,7 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
                         </Link>
                       </SheetClose>
                     ))}
-                    {user && !authLoading && ( 
+                    {user && ( 
                       <>
                         <Separator className="my-3 bg-border"/>
                         <h3 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{T.userNavigation}</h3>
@@ -543,7 +552,7 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
                     )}
                   </nav>
                 </ScrollArea>
-                {user && !authLoading && (
+                {user && (
                   <div className="mt-auto p-4 border-t border-border">
                     <div className="flex items-center gap-3">
                        <Avatar className="h-10 w-10 border-2 border-primary techno-glow-primary">
@@ -561,7 +570,7 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
             </Sheet>
             
             <div className="hidden md:block font-bold text-xl text-primary ml-2">
-              { (localStorage.getItem('sidebarCollapsed_v2') === 'true' && user && !authLoading) && "DAS" }
+              { (typeof window !== 'undefined' && localStorage.getItem('sidebarCollapsed_v3') === 'true' && user && !authLoading) && "DAS" }
             </div>
 
             <nav className="hidden md:flex flex-1 items-center justify-center gap-1">
@@ -607,7 +616,7 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {authLoading && !user ? (
+              {authLoading && !user ? ( // Should show skeleton if auth is loading and no user yet
                 <Skeleton className="h-9 w-9 rounded-full bg-muted" />
               ) : user ? (
                 <DropdownMenu>
@@ -645,12 +654,12 @@ export function AppLayout({ children }: { children: React.ReactNode; }) {
                         disabled={userNavItemsList.find(item => item.actionKey === 'logoutAction')?.disabled}
                       >
                         <LogOutIcon className="mr-2 h-4 w-4 text-destructive" />
-                        <span className="text-destructive">{userNavItemsList.find(item => item.actionKey === 'logoutAction')!.title}</span>
+                        <span className="text-destructive">{getNavItemTitle(userNavItemsList.find(item => item.actionKey === 'logoutAction')!, T)}</span>
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
-              ) : (
+              ) : ( // Case: not authLoading and no user (e.g. logged out state or error)
                  <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" onClick={() => router.push('/home')} aria-label={T.loginSimulated} className="text-foreground hover:bg-accent hover:text-accent-foreground rounded-full h-9 w-9">
