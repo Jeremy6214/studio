@@ -14,12 +14,12 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Send, User, Bot, CornerDownLeft, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { Sparkles, Send, User, Bot, Image as ImageIcon, AlertCircle } from 'lucide-react'; // CornerDownLeft removed as it's not used
 import Image from 'next/image';
 import { askStudyAssistant, type StudyAssistantInput, type StudyAssistantOutput } from '@/ai/flows/study-assistant-flow';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { Avatar } from '@/components/ui/avatar'; // Added Avatar import
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'; // AvatarImage removed as not used, AvatarFallback added for completeness
 
 interface Message {
   id: string;
@@ -32,7 +32,7 @@ interface Message {
 
 interface StudyAssistantDialogProps {
   currentLanguage: 'es' | 'en';
-  triggerButton?: React.ReactNode; // Optional custom trigger
+  triggerButton?: React.ReactNode;
 }
 
 export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAssistantDialogProps) {
@@ -42,32 +42,37 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
   const [isResponding, setIsResponding] = useState(false);
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const assistantWelcomeMessage: Message = {
+  const getWelcomeMessage = (lang: 'es' | 'en'): Message => ({
     id: 'welcome-' + Date.now(),
     type: 'assistant',
-    text: currentLanguage === 'es' ? '¡Hola! Soy tu Asistente de Estudio IA de DarkAIschool. ¿En qué puedo ayudarte hoy?' : 'Hi! I_m your DarkAIschool AI Study Assistant. How can I help you today?',
-  };
+    text: lang === 'es' ? '¡Hola! Soy tu Asistente de Estudio IA de DarkAIschool. ¿En qué puedo ayudarte hoy?' : 'Hi! I_m your DarkAIschool AI Study Assistant. How can I help you today?',
+  });
 
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      setMessages([assistantWelcomeMessage]);
+    if (isOpen) {
+      if (messages.length === 0) {
+        setMessages([getWelcomeMessage(currentLanguage)]);
+      }
+      // Focus input when dialog opens or messages change (especially after response)
+      inputRef.current?.focus();
     }
-  }, [isOpen, currentLanguage, messages.length, assistantWelcomeMessage]); // Added messages.length and assistantWelcomeMessage to dependencies
+  }, [isOpen, currentLanguage, messages.length]);
 
 
   useEffect(() => {
     if (scrollAreaRef.current) {
-      const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollElement) {
-        scrollElement.scrollTop = scrollElement.scrollHeight;
+      const scrollViewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollViewport) {
+        scrollViewport.scrollTop = scrollViewport.scrollHeight;
       }
     }
   }, [messages]);
 
-  const handleSendMessage = async (query?: string) => {
-    const currentQuery = (query || inputValue).trim();
-    if (!currentQuery) return;
+  const handleSendMessage = async (queryOverride?: string) => {
+    const currentQuery = (queryOverride || inputValue).trim();
+    if (!currentQuery || isResponding) return;
 
     const userMessage: Message = {
       id: 'user-' + Date.now(),
@@ -100,26 +105,31 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
       };
       setMessages(prev => prev.filter(m => !m.isLoading).concat(assistantResponseMessage));
 
-    } catch (error) {
-      console.error('Error calling study assistant:', error);
+    } catch (error: any) {
+      console.error('Error calling study assistant from dialog:', error);
+      const errorMessageText = error.message && error.message.includes('GOOGLE_API_KEY') 
+        ? (currentLanguage === 'es' ? 'Error de configuración: Por favor, verifica tu GOOGLE_API_KEY.' : 'Configuration Error: Please check your GOOGLE_API_KEY.')
+        : (currentLanguage === 'es' ? 'Hubo un problema al contactar al asistente. Inténtalo de nuevo.' : 'There was an issue contacting the assistant. Please try again.');
+      
       toast({
         variant: 'destructive',
         title: currentLanguage === 'es' ? 'Error de IA' : 'AI Error',
-        description: currentLanguage === 'es' ? 'Hubo un problema al contactar al asistente. Inténtalo de nuevo.' : 'There was an issue contacting the assistant. Please try again.',
+        description: errorMessageText,
       });
       setMessages(prev => prev.filter(m => !m.isLoading).concat({
         id: 'error-' + Date.now(),
         type: 'assistant',
-        text: currentLanguage === 'es' ? 'Lo siento, no pude procesar tu solicitud en este momento.' : 'Sorry, I couldn_t process your request right now.',
+        text: errorMessageText,
       }));
     } finally {
       setIsResponding(false);
+      inputRef.current?.focus();
     }
   };
   
   const handleSuggestionClick = (suggestion: string) => {
-    setInputValue(suggestion); // Pre-fill input
-    handleSendMessage(suggestion); // Send message
+    // Do not set inputValue here, directly send the suggestion
+    handleSendMessage(suggestion);
   };
 
 
@@ -139,13 +149,13 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
     <>
       {triggerButton ? <div onClick={() => setIsOpen(true)}>{triggerButton}</div> : defaultTrigger}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-2xl h-[80vh] flex flex-col p-0">
+        <DialogContent className="sm:max-w-2xl h-[calc(100vh-4rem)] md:h-[80vh] flex flex-col p-0">
           <DialogHeader className="p-4 border-b">
-            <DialogTitle className="flex items-center gap-2 text-lg">
+            <DialogTitle className="flex items-center gap-2 text-lg text-primary-foreground">
               <Sparkles className="h-5 w-5 text-primary" />
               {currentLanguage === 'es' ? 'Asistente de Estudio IA - DarkAIschool' : 'AI Study Assistant - DarkAIschool'}
             </DialogTitle>
-            <DialogDescription className="text-sm">
+            <DialogDescription className="text-sm text-muted-foreground">
               {currentLanguage === 'es' ? 'Pide ayuda, explicaciones, ideas para estudiar, ¡y más!' : 'Ask for help, explanations, study ideas, and more!'}
             </DialogDescription>
           </DialogHeader>
@@ -155,12 +165,12 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex items-end gap-2 ${
+                  className={`flex items-start gap-2.5 ${ // items-start for better avatar alignment
                     msg.type === 'user' ? 'justify-end' : 'justify-start'
                   }`}
                 >
                   {msg.type === 'assistant' && (
-                    <Avatar className="h-8 w-8 bg-primary text-primary-foreground flex items-center justify-center">
+                    <Avatar className="h-8 w-8 bg-primary text-primary-foreground flex items-center justify-center shrink-0"> {/* shrink-0 */}
                       <Bot className="h-5 w-5" />
                     </Avatar>
                   )}
@@ -172,10 +182,10 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
                     }`}
                   >
                     {msg.isLoading ? (
-                       <div className="flex items-center space-x-2">
-                         <Skeleton className="h-4 w-4 rounded-full bg-muted-foreground/30" />
-                         <Skeleton className="h-3 w-[50px] bg-muted-foreground/30" />
-                         <Skeleton className="h-3 w-[30px] bg-muted-foreground/30" />
+                       <div className="flex items-center space-x-2 p-1">
+                         <Skeleton className="h-3 w-3 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.3s]" />
+                         <Skeleton className="h-3 w-3 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.15s]" />
+                         <Skeleton className="h-3 w-3 rounded-full bg-muted-foreground/30 animate-bounce" />
                        </div>
                     ) : (
                       <>
@@ -188,7 +198,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
                                width={300}
                                height={300}
                                className="rounded-md object-contain max-h-[300px] w-auto"
-                               data-ai-hint="diagram illustration" // Generic hint
+                               data-ai-hint="diagram illustration"
                              />
                            </div>
                         )}
@@ -197,24 +207,26 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
                             <p className="text-xs font-medium text-muted-foreground/80">
                               {currentLanguage === 'es' ? 'Sugerencias:' : 'Suggestions:'}
                             </p>
-                            {msg.suggestions.map((sugg, index) => (
-                              <Button
-                                key={index}
-                                variant="outline"
-                                size="sm"
-                                className="text-xs h-auto py-1 px-2 mr-1.5 mb-1.5 border-primary/50 text-primary hover:bg-primary/10"
-                                onClick={() => handleSuggestionClick(sugg)}
-                              >
-                                {sugg}
-                              </Button>
-                            ))}
+                            <div className="flex flex-wrap gap-1.5">
+                                {msg.suggestions.map((sugg, index) => (
+                                <Button
+                                    key={index}
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs h-auto py-1 px-2 border-primary/50 text-primary hover:bg-primary/10"
+                                    onClick={() => handleSuggestionClick(sugg)}
+                                >
+                                    {sugg}
+                                </Button>
+                                ))}
+                            </div>
                           </div>
                         )}
                       </>
                     )}
                   </div>
                   {msg.type === 'user' && (
-                    <Avatar className="h-8 w-8 bg-secondary text-secondary-foreground flex items-center justify-center">
+                    <Avatar className="h-8 w-8 bg-secondary text-secondary-foreground flex items-center justify-center shrink-0"> {/* shrink-0 */}
                       <User className="h-5 w-5" />
                     </Avatar>
                   )}
@@ -223,7 +235,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
             </div>
           </ScrollArea>
 
-          <DialogFooter className="p-4 border-t">
+          <DialogFooter className="p-4 border-t bg-background">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -232,11 +244,12 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
               className="flex w-full items-center gap-2"
             >
               <Textarea
+                ref={inputRef}
                 placeholder={currentLanguage === 'es' ? 'Escribe tu pregunta o solicitud aquí...' : 'Type your question or request here...'}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === 'Enter' && !e.shiftKey && !isResponding) {
                     e.preventDefault();
                     handleSendMessage();
                   }
