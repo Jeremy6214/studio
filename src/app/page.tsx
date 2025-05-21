@@ -1,21 +1,38 @@
 
-// This file can be removed or repurposed if /home is the new default.
-// For now, let's make it redirect to /home or just show a minimal message.
-// It was previously updated to redirect to /home in next.config.js
-// So this page might not be hit directly often, but good to have a fallback.
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Rocket, BookOpen } from "lucide-react";
 
 export default function RootPage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen text-center p-4">
-      <h1 className="text-4xl font-bold mb-4">Bienvenido a EduConnect</h1>
-      <p className="text-lg text-muted-foreground mb-8">
-        La plataforma de aprendizaje ha sido actualizada.
+    <div className="flex flex-col items-center justify-center min-h-screen text-center p-6 bg-gradient-to-br from-background via-card to-background">
+      <div className="mb-8">
+        <Rocket className="h-24 w-24 text-primary techno-glow-primary animate-pulse" />
+      </div>
+      <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 text-foreground tracking-tight">
+        Bienvenido a <span className="text-primary">DarkAISchool</span>
+      </h1>
+      <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl">
+        Tu portal hacia el conocimiento arcano y la maestría tecnológica. 
+        Emprende tu odisea de aprendizaje con Nova y la legión.
       </p>
-      <Link href="/home" passHref>
-        <Button size="lg">Ir al Panel Principal</Button>
-      </Link>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Link href="/home" passHref>
+          <Button size="lg" className="hover:scale-105 hover:brightness-125 transition-transform duration-200 techno-glow-primary shadow-lg px-8 py-6 text-lg">
+            <BookOpen className="mr-2.5 h-5 w-5" />
+            Acceder al Panel
+          </Button>
+        </Link>
+         <Link href="/ai-assistant" passHref>
+          <Button variant="outline" size="lg" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground hover:scale-105 transition-transform duration-200 techno-glow-primary shadow-lg px-8 py-6 text-lg">
+            <BrainCircuit className="mr-2.5 h-5 w-5" />
+            Contactar a Nova IA
+          </Button>
+        </Link>
+      </div>
+      <p className="mt-12 text-xs text-muted-foreground/70">
+        DarkAISchool &copy; {new Date().getFullYear()} - Forjando el futuro del conocimiento.
+      </p>
     </div>
   );
 }

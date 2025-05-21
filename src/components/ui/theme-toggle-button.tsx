@@ -2,76 +2,101 @@
 "use client";
 
 import * as React from "react";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, MonitorSmartphone } from "lucide-react"; // Added MonitorSmartphone for system
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"; // Importar hook
-import { doc, updateDoc } from "firebase/firestore"; // Importar firestore
-import { db } from "@/lib/firebase"; // Importar db
+import { useFirebaseAuth } from "@/hooks/useFirebaseAuth"; 
+import { doc, updateDoc } from "firebase/firestore"; 
+import { db } from "@/lib/firebase"; 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type Theme = "light" | "dark" | "system";
 
 export function ThemeToggleButton() {
-  const { user, userProfile } = useFirebaseAuth(); // Usar hook
+  const { user, userProfile, setUserProfileState } = useFirebaseAuth(); 
   const { toast } = useToast();
-  // El estado local del tema no es necesario aquí si AppLayout lo maneja centralmente
-  // y este botón solo alterna y guarda.
+  const [currentTheme, setCurrentTheme] = React.useState<Theme>("system");
+  const [hasMounted, setHasMounted] = React.useState(false);
 
-  const applyTheme = React.useCallback((themeToApply: Theme) => {
-    document.documentElement.classList.remove("light", "dark");
-    if (themeToApply === "dark") {
-      document.documentElement.classList.add("dark");
-    } else if (themeToApply === "light") {
-      document.documentElement.classList.add("light");
-    } else { // system
-      if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        document.documentElement.classList.add("dark");
-      } else {
-        // No es necesario remover 'dark' si no está, y 'light' no es una clase que añadamos por defecto.
-        // El CSS base debe manejar el tema claro.
-      }
-    }
-  }, []);
+  React.useEffect(() => {
+    setHasMounted(true);
+    const storedTheme = localStorage.getItem("theme") as Theme | null;
+    const initialTheme = userProfile?.tema || storedTheme || "system";
+    setCurrentTheme(initialTheme);
+    applyThemeToDocument(initialTheme);
+  }, [userProfile?.tema]); // Rerun if theme from profile changes
 
-  const toggleThemeAndPersist = async () => {
-    const currentStoredTheme = localStorage.getItem("theme") as Theme || "system";
-    let newTheme: Theme;
+  const applyThemeToDocument = (theme: Theme) => {
+    if (typeof window === 'undefined') return;
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
 
-    // Determinar el tema actual efectivo
-    let currentEffectiveTheme: 'light' | 'dark';
-    if (currentStoredTheme === 'system') {
-      currentEffectiveTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? 'dark' : 'light';
+    if (theme === "system") {
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      root.classList.add(systemTheme);
     } else {
-      currentEffectiveTheme = currentStoredTheme;
+      root.classList.add(theme);
     }
-    
-    // Alternar
-    newTheme = currentEffectiveTheme === 'dark' ? 'light' : 'dark';
+  };
 
-    applyTheme(newTheme); // Aplicar visualmente
-    localStorage.setItem("theme", newTheme); // Guardar en localStorage
+  const setTheme = async (theme: Theme) => {
+    if (!hasMounted) return;
 
-    toast({ title: `Tema cambiado a ${newTheme === 'dark' ? 'Oscuro' : 'Claro'}` });
+    setCurrentTheme(theme);
+    applyThemeToDocument(theme);
+    localStorage.setItem("theme", theme);
+
+    let themeNameToast = "";
+    if (theme === 'light') themeNameToast = "Claro";
+    else if (theme === 'dark') themeNameToast = "Oscuro";
+    else themeNameToast = "Automático (Sistema)";
+
+    toast({ title: `Interfaz actualizada a tema ${themeNameToast}` });
 
     if (user && user.uid) {
       try {
         const userDocRef = doc(db, "users", user.uid);
-        await updateDoc(userDocRef, { tema: newTheme });
+        await updateDoc(userDocRef, { tema: theme });
+        if (userProfile) {
+          setUserProfileState({ ...userProfile, tema: theme });
+        }
       } catch (error) {
         console.error("Error updating theme in Firestore:", error);
-        toast({ title: "Error", description: "No se pudo guardar el tema en la nube.", variant: "destructive" });
+        toast({ title: "Error de Sincronización", description: "No se pudo guardar el tema en la nube.", variant: "destructive" });
       }
     }
   };
   
-  // No es necesario el useEffect para setear el tema inicial aquí, 
-  // AppLayout se encarga de eso al cargar la página.
+  if (!hasMounted) { // Avoid rendering mismatch during hydration
+    return <Button variant="ghost" size="icon" className="text-foreground hover:bg-accent hover:text-accent-foreground rounded-full h-10 w-10" disabled><MonitorSmartphone className="h-5 w-5" /></Button>;
+  }
 
   return (
-    <Button variant="ghost" size="icon" onClick={toggleThemeAndPersist} aria-label="Toggle theme" className="text-foreground hover:text-accent-foreground hover:bg-accent">
-      <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-      <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-      <span className="sr-only">Toggle theme</span>
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Toggle theme" className="text-foreground hover:bg-accent hover:text-accent-foreground rounded-full h-10 w-10 hover:scale-110 transition-transform">
+          {currentTheme === "light" && <Sun className="h-5 w-5 transition-all" />}
+          {currentTheme === "dark" && <Moon className="h-5 w-5 transition-all" />}
+          {currentTheme === "system" && <MonitorSmartphone className="h-5 w-5 transition-all" />}
+          <span className="sr-only">Toggle theme</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="bg-popover text-popover-foreground border-border shadow-xl">
+        <DropdownMenuItem onClick={() => setTheme("light")} className="hover:bg-accent cursor-pointer gap-2">
+          <Sun className="h-4 w-4 mr-1" /> Claro
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("dark")} className="hover:bg-accent cursor-pointer gap-2">
+          <Moon className="h-4 w-4 mr-1" /> Oscuro
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("system")} className="hover:bg-accent cursor-pointer gap-2">
+          <MonitorSmartphone className="h-4 w-4 mr-1" /> Sistema
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

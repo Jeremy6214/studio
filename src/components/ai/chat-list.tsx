@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import type { ChatSession } from '@/types/ai-chat';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { PlusCircle, MessageSquareText, Trash2, Edit3, Check, X } from 'lucide-react';
+import { PlusCircle, MessageSquareText, Trash2, Edit3, Check, X, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -46,28 +46,28 @@ export function ChatList({
 
   const T = {
     es: {
-      newChat: "Nuevo Chat",
+      newChat: "Nueva Sincronización",
       chat: "Chat",
-      deleteChatTitle: "¿Eliminar este chat?",
-      deleteChatDescription: "Esta acción no se puede deshacer. Esto eliminará permanentemente la conversación.",
+      deleteChatTitle: "¿Desincronizar esta hebra de datos?",
+      deleteChatDescription: "Esta acción no se puede deshacer. Esto eliminará permanentemente la conversación con Nova.",
       cancel: "Cancelar",
-      delete: "Eliminar",
-      rename: "Renombrar",
+      delete: "Desincronizar",
+      rename: "Renombrar Hebra",
       confirmRename: "Confirmar Renombre",
       cancelRename: "Cancelar Renombre",
-      editNamePlaceholder: "Nuevo nombre del chat...",
+      editNamePlaceholder: "Nuevo alias de hebra...",
     },
     en: {
-      newChat: "New Chat",
+      newChat: "New Sync",
       chat: "Chat",
-      deleteChatTitle: "Delete this chat?",
-      deleteChatDescription: "This action cannot be undone. This will permanently delete the conversation.",
+      deleteChatTitle: "Desync this data stream?",
+      deleteChatDescription: "This action cannot be undone. This will permanently delete the conversation with Nova.",
       cancel: "Cancel",
-      delete: "Delete",
-      rename: "Rename",
+      delete: "Desync",
+      rename: "Rename Stream",
       confirmRename: "Confirm Rename",
       cancelRename: "Cancel Rename",
-      editNamePlaceholder: "New chat name...",
+      editNamePlaceholder: "New stream alias...",
     }
   }[currentLanguage];
 
@@ -85,90 +85,100 @@ export function ChatList({
   };
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <div className="flex flex-col h-full text-sidebar-foreground"> {/* Use sidebar text color */}
+    <TooltipProvider delayDuration={150}>
+      <div className="flex flex-col h-full text-sidebar-foreground bg-sidebar">
         <div className="p-3 border-b border-sidebar-border">
-          <Button onClick={onCreateNewChat} className="w-full" variant="default"> {/* Default button for primary action in sidebar */}
+          <Button 
+            onClick={onCreateNewChat} 
+            className="w-full hover:scale-105 hover:brightness-125 transition-transform duration-200 techno-glow-primary shadow-md" 
+            variant="default"
+          >
             <PlusCircle className="mr-2 h-5 w-5" />
             {T.newChat}
           </Button>
         </div>
         <ScrollArea className="flex-grow">
           <div className="space-y-1 p-2">
+            {sessions.length === 0 && (
+              <div className="text-center py-10 text-muted-foreground">
+                <Sparkles className="mx-auto h-12 w-12 opacity-50 mb-3" />
+                <p className="text-sm">{currentLanguage === 'es' ? 'Inicia tu primera sincronización con Nova.' : 'Start your first sync with Nova.'}</p>
+              </div>
+            )}
             {sessions.map((session) => (
-              <div key={session.id} className="group relative">
+              <div key={session.id} className="group relative rounded-lg">
                 {editingSessionId === session.id ? (
-                  <div className="flex items-center gap-1 p-2 rounded-md bg-background border border-primary shadow-sm">
+                  <div className="flex items-center gap-1 p-2 rounded-lg bg-background border border-primary shadow-md">
                     <Input
                       type="text"
                       value={editText}
                       onChange={(e) => setEditText(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleRename(session.id)}
                       placeholder={T.editNamePlaceholder}
-                      className="h-8 flex-grow text-sm bg-input border-input text-foreground"
+                      className="h-9 flex-grow text-sm bg-input border-input text-foreground focus:techno-glow-primary"
                       autoFocus
                     />
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" onClick={() => handleRename(session.id)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-full" onClick={() => handleRename(session.id)}>
                           <Check className="h-4 w-4 text-green-500" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="bg-popover text-popover-foreground"><p>{T.confirmRename}</p></TooltipContent>
+                      <TooltipContent side="bottom" className="bg-popover text-popover-foreground border-border"><p>{T.confirmRename}</p></TooltipContent>
                     </Tooltip>
                      <Tooltip>
                        <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" onClick={() => { setEditingSessionId(null); setEditText(''); }}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-full" onClick={() => { setEditingSessionId(null); setEditText(''); }}>
                           <X className="h-4 w-4 text-red-500" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="bg-popover text-popover-foreground"><p>{T.cancelRename}</p></TooltipContent>
+                      <TooltipContent side="bottom" className="bg-popover text-popover-foreground border-border"><p>{T.cancelRename}</p></TooltipContent>
                     </Tooltip>
                   </div>
                 ) : (
                   <Button
-                    variant={'ghost'} // Always ghost for list items, active state handled by cn
+                    variant={'ghost'} 
                     className={cn(
-                      'w-full justify-start items-center text-sm h-auto py-2 px-3 text-left text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                      activeSessionId === session.id && 'bg-sidebar-primary text-sidebar-primary-foreground font-semibold'
+                      'w-full justify-start items-center text-sm h-auto py-2.5 px-3 text-left text-sidebar-foreground hover:bg-sidebar-accent hover:text-primary rounded-lg transition-all duration-150 ease-in-out',
+                      activeSessionId === session.id && 'bg-sidebar-primary text-sidebar-primary-foreground font-semibold techno-glow-primary shadow-inner'
                     )}
                     onClick={() => onSelectSession(session.id)}
                   >
-                    <MessageSquareText className="mr-2 h-4 w-4 flex-shrink-0" />
+                    <MessageSquareText className="mr-2.5 h-4 w-4 flex-shrink-0" />
                     <span className="truncate flex-grow">{session.name}</span>
                   </Button>
                 )}
                 {editingSessionId !== session.id && (
-                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                     <Tooltip>
                        <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" onClick={() => startEdit(session)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-full" onClick={() => startEdit(session)}>
                           <Edit3 className="h-4 w-4" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="bg-popover text-popover-foreground"><p>{T.rename}</p></TooltipContent>
+                      <TooltipContent side="bottom" className="bg-popover text-popover-foreground border-border"><p>{T.rename}</p></TooltipContent>
                     </Tooltip>
                     <AlertDialog>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </AlertDialogTrigger>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" className="bg-popover text-popover-foreground"><p>{T.delete}</p></TooltipContent>
+                        <TooltipContent side="bottom" className="bg-popover text-popover-foreground border-border"><p>{T.delete}</p></TooltipContent>
                       </Tooltip>
-                      <AlertDialogContent className="bg-card border-border">
+                      <AlertDialogContent className="bg-card border-border shadow-xl techno-glow-destructive">
                         <AlertDialogHeader>
-                          <AlertDialogTitle className="text-card-foreground">{T.deleteChatTitle}</AlertDialogTitle>
+                          <AlertDialogTitle className="text-foreground text-xl">{T.deleteChatTitle}</AlertDialogTitle>
                           <AlertDialogDescription className="text-muted-foreground">{T.deleteChatDescription}</AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogCancel className="hover:scale-105 transition-transform">Cancelar</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => onDeleteSession(session.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:scale-105 transition-transform"
                           >
                             {T.delete}
                           </AlertDialogAction>

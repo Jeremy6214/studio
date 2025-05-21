@@ -5,17 +5,19 @@ import { BrainCircuit } from "lucide-react";
 
 export default function AiAssistantPage() {
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight flex items-center">
-          <BrainCircuit className="mr-3 h-8 w-8 text-primary" />
+    <div className="space-y-6 h-full flex flex-col">
+      <header className="pb-4 border-b border-border">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight flex items-center text-foreground">
+          <BrainCircuit className="mr-3 h-8 w-8 text-primary techno-glow-primary" />
           Asistente IA Nova
         </h1>
         <p className="text-muted-foreground text-lg mt-2">
-          Gestiona tus conversaciones con Nova y obtén ayuda personalizada.
+          Tu copiloto en la odisea del conocimiento. Nova está aquí para ayudarte.
         </p>
       </header>
-      <AiAssistantLayout />
+      <div className="flex-grow min-h-0"> {/* Ensure this div takes remaining height */}
+        <AiAssistantLayout />
+      </div>
     </div>
   );
 }

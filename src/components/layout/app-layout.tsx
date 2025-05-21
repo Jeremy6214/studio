@@ -9,12 +9,11 @@ import { Input } from '@/components/ui/input';
 import { navItems as mainNavItemsData } from './nav-items';
 import type { NavItem } from './nav-items';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Globe, Menu, X, LogOut, Settings, LayoutList, Star, User as UserIcon, BrainCircuit } from 'lucide-react';
+import { Globe, Menu, X, LogOutIcon, BrainCircuit } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuGroup,
   DropdownMenuLabel
@@ -32,15 +31,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { doc, updateDoc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import type { UserProfile as UserProfileType } from "@/types/firestore";
 import type { UserNavItem } from './user-nav-items';
 import { userNavItemsListDetails } from './user-nav-items';
 import { signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { Skeleton } from '../ui/skeleton';
-
-type Theme = "light" | "dark" | "system";
 
 interface AppLayoutTextsType {
   searchPlaceholder: string;
@@ -68,232 +66,62 @@ interface AppLayoutTextsType {
 
 const appLayoutTexts: Record<'es' | 'en', AppLayoutTextsType> = {
   es: {
-    searchPlaceholder: "Buscar en la plataforma...",
+    searchPlaceholder: "Buscar en DarkAISchool...",
     languageChanged: "Idioma Cambiado",
-    languageChangedDesc: (lang: string) => `El idioma de la interfaz ahora es ${lang}.`,
+    languageChangedDesc: (lang: string) => `La interfaz ahora está en ${lang}.`,
     languageSaveError: "Error al guardar el idioma.",
     searchSubmitted: "Búsqueda Enviada (Simulada)",
-    searchSubmittedDesc: (query: string) => `Has buscado: "${query}". La funcionalidad completa de búsqueda no está implementada.`,
+    searchSubmittedDesc: (query: string) => `Has buscado: "${query}". Funcionalidad pendiente.`,
     mainNavigation: "Navegación Principal",
-    userNavigation: "Navegación de Usuario",
-    mobileMenuTitle: "EduConnect Menú",
+    userNavigation: "Portal del Piloto",
+    mobileMenuTitle: "DarkAISchool Menú",
     navPanel: "Panel",
     navForums: "Foros",
-    navRecovery: "Acceso de Recuperación",
-    navMaterials: "Materiales de Estudio",
-    navSettings: "Configuración",
-    navAiAssistant: "Asistente Nova",
-    navMyForums: "Mis Foros",
-    navFavorites: "Favoritos",
-    navLogout: "Cerrar Sesión",
-    loggedInAs: (name: string) => `Sesión iniciada como ${name}`,
-    loadingUser: "Cargando...",
-    loginSimulated: "Iniciar sesión (Simulado)",
+    navRecovery: "Acceso Recuperación",
+    navMaterials: "Materiales",
+    navSettings: "Ajustes",
+    navAiAssistant: "Nova IA",
+    navMyForums: "Mis Holo-Foros",
+    navFavorites: "Holo-Favoritos",
+    navLogout: "Desconectar Portal",
+    loggedInAs: (name: string) => `Piloto ${name} en línea`,
+    loadingUser: "Sincronizando Piloto...",
+    loginSimulated: "Acceder al Portal (Simulado)",
   },
   en: {
-    searchPlaceholder: "Search platform...",
+    searchPlaceholder: "Search DarkAISchool...",
     languageChanged: "Language Changed",
     languageChangedDesc: (lang: string) => `Interface language is now ${lang}.`,
     languageSaveError: "Error saving language preference.",
     searchSubmitted: "Search Submitted (Simulated)",
-    searchSubmittedDesc: (query: string) => `You searched for: "${query}". Full search functionality not implemented.`,
+    searchSubmittedDesc: (query: string) => `You searched for: "${query}". Functionality pending.`,
     mainNavigation: "Main Navigation",
-    userNavigation: "User Navigation",
-    mobileMenuTitle: "EduConnect Menu",
+    userNavigation: "Pilot's Portal",
+    mobileMenuTitle: "DarkAISchool Menu",
     navPanel: "Dashboard",
     navForums: "Forums",
     navRecovery: "Recovery Access",
-    navMaterials: "Study Materials",
+    navMaterials: "Materials",
     navSettings: "Settings",
-    navAiAssistant: "Nova Assistant",
-    navMyForums: "My Forums",
-    navFavorites: "Favorites",
-    navLogout: "Log Out",
-    loggedInAs: (name: string) => `Logged in as ${name}`,
-    loadingUser: "Loading...",
-    loginSimulated: "Log In (Simulated)",
+    navAiAssistant: "Nova AI",
+    navMyForums: "My Holo-Forums",
+    navFavorites: "Holo-Favorites",
+    navLogout: "Disconnect Portal",
+    loggedInAs: (name: string) => `Pilot ${name} online`,
+    loadingUser: "Syncing Pilot...",
+    loginSimulated: "Access Portal (Simulated)",
   }
 };
 
+type Theme = "light" | "dark" | "system";
 
-function DesktopNav({ currentLanguage, T, pathname }: { currentLanguage: 'es' | 'en', T: AppLayoutTextsType, pathname: string }) {
-  const getNavItemTitle = (item: NavItem) => {
-    switch (item.key) {
-      case 'home': return T.navPanel;
-      case 'forums': return T.navForums;
-      case 'recovery-access': return T.navRecovery;
-      case 'study-materials': return T.navMaterials;
-      default: return item.title;
-    }
-  };
-
-  return (
-    <nav className="hidden md:flex gap-1 items-center">
-      {mainNavItemsData.map((item: NavItem) => (
-        <Button
-          key={item.key}
-          asChild
-          variant={pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/home') || (pathname === '/' && item.href === '/home') ? "secondary" : "ghost"}
-          className="text-sm font-medium"
-        >
-          <Link href={item.href} className="flex items-center gap-2 px-3 py-2">
-            <item.icon className="h-4 w-4" />
-            {getNavItemTitle(item)}
-          </Link>
-        </Button>
-      ))}
-    </nav>
-  );
-}
-
-// Main User Sidebar Component
-function UserDesktopSidebar({ currentLanguage, T, pathname, user, handleLogout, userNavItems, userProfileLoading }: {
-  currentLanguage: 'es' | 'en',
-  T: AppLayoutTextsType,
-  pathname: string,
-  user: ReturnType<typeof useFirebaseAuth>['user'],
-  handleLogout: () => void,
-  userNavItems: UserNavItem[],
-  userProfileLoading: boolean,
-}) {
-  const [isCollapsed, setIsCollapsed] = React.useState(false); // Default for SSR and initial client render
-  const [hasMounted, setHasMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
-  React.useEffect(() => {
-    if (hasMounted && typeof window !== 'undefined') {
-      const storedState = localStorage.getItem('sidebarCollapsed');
-      if (storedState) {
-        try {
-          const parsedState = JSON.parse(storedState);
-          if (typeof parsedState === 'boolean') {
-            setIsCollapsed(parsedState);
-          }
-        } catch (e) {
-          console.error("Error parsing sidebarCollapsed from localStorage", e);
-        }
-      }
-    }
-  }, [hasMounted]);
-
-  const toggleCollapse = () => {
-    if (hasMounted) { // Only allow toggle after mount
-      setIsCollapsed(prevState => {
-        const newState = !prevState;
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('sidebarCollapsed', JSON.stringify(newState));
-        }
-        return newState;
-      });
-    }
-  };
-
-
-  return (
-    <aside className={cn(
-      "hidden md:fixed md:inset-y-0 md:left-0 md:z-40 md:flex md:flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out text-sidebar-foreground",
-      isCollapsed ? "md:w-16" : "md:w-60"
-    )}
-    >
-      <div className={cn("flex items-center border-b border-sidebar-border px-4", isCollapsed ? "justify-center h-16" : "h-16")}>
-        {!isCollapsed && (
-          <Link href="/home" className="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="h-7 w-7">
-              <rect width="256" height="256" fill="none"></rect>
-              <path d="M41.4,104.6C22.8,123.1,16,144,16,160a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,104.6Z" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
-              <path d="M113.4,104.6c18.6-18.5,25.4-39.4,25.4-55.4a64,64,0,0,0-128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,0,50.2,22.1A71.8,71.8,0,0,0,113.4,104.6Z" transform="translate(256 48) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
-              <path d="M41.4,151.4c-18.6,18.5-25.4,39.4-25.4,55.4a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,151.4Z" transform="translate(48 256) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
-              <path d="M113.4,151.4c-18.6-18.5-25.4-39.4-25.4-55.4a64,64,0,0,1,128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,1-50.2,22.1A71.8,71.8,0,0,1,113.4,151.4Z" transform="translate(256 208) rotate(180)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
-            </svg>
-            <span className="font-bold text-lg text-sidebar-foreground">DarkAISchool</span>
-          </Link>
-        )}
-        <Button variant="ghost" size="icon" onClick={toggleCollapse} className={cn("text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", isCollapsed ? "absolute top-3 left-1/2 -translate-x-1/2" : "ml-auto")}>
-          <Menu className={cn("h-5 w-5 transition-transform duration-300", isCollapsed ? "rotate-180" : "")} />
-        </Button>
-      </div>
-      <ScrollArea className="flex-1 py-2">
-        <nav className="grid gap-1 px-2">
-          {userNavItems.map((item) => (
-            <Tooltip key={item.title}>
-              <TooltipTrigger asChild>
-                {item.href ? (
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                      (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/home')) && "bg-sidebar-primary text-sidebar-primary-foreground font-semibold",
-                      isCollapsed && "justify-center",
-                      (item.disabled || (userProfileLoading && item.href !== '/settings')) && "opacity-50 cursor-not-allowed" // Adjusted disabled logic
-                    )}
-                    aria-disabled={item.disabled || (userProfileLoading && item.href !== '/settings')}
-                    onClick={(e) => (item.disabled || (userProfileLoading && item.href !== '/settings')) && e.preventDefault()}
-                  >
-                    <item.icon className={cn("h-5 w-5", isCollapsed ? "mx-auto" : "")} />
-                    {!isCollapsed && <span>{item.title}</span>}
-                  </Link>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      "w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground justify-start",
-                      isCollapsed && "justify-center",
-                      (item.disabled || userProfileLoading) && "opacity-50 cursor-not-allowed" // Adjusted disabled logic
-                    )}
-                    onClick={(e) => {
-                      if (item.disabled || userProfileLoading) e.preventDefault();
-                      else item.action?.();
-                    }}
-                    disabled={item.disabled || userProfileLoading}
-                  >
-                    <item.icon className={cn("h-5 w-5", isCollapsed ? "mx-auto" : "")} />
-                    {!isCollapsed && <span>{item.title}</span>}
-                  </Button>
-                )}
-              </TooltipTrigger>
-              {isCollapsed && <TooltipContent side="right" className="bg-popover text-popover-foreground"><p>{item.title}</p></TooltipContent>}
-            </Tooltip>
-          ))}
-        </nav>
-      </ScrollArea>
-      {user && !isCollapsed && (
-        <div className="mt-auto p-3 border-t border-sidebar-border">
-          {userProfileLoading ? (
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-9 w-9 rounded-full bg-muted" />
-              <div className="space-y-1">
-                <Skeleton className="h-4 w-24 bg-muted" />
-                <Skeleton className="h-3 w-32 bg-muted" />
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "Usuario"} data-ai-hint="user avatar" />
-                <AvatarFallback>{user.displayName?.substring(0, 2).toUpperCase() || (user.email ? user.email.substring(0, 2).toUpperCase() : "ET")}</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="text-sm font-medium text-sidebar-foreground truncate max-w-[150px]">{user.displayName || T.loadingUser}</p>
-                <p className="text-xs text-muted-foreground truncate max-w-[150px]">{user.email}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </aside>
-  );
-}
-
-
-export function AppLayout({ children }: { children: React.ReactNode }) {
+export function AppLayout({ children }: { children: React.ReactNode; }) {
   const { toast } = useToast();
   const { user, loading: authLoading, userProfile, setUserProfileState } = useFirebaseAuth();
   const [currentLanguage, setCurrentLanguage] = React.useState<'es' | 'en'>('es');
   const [isMobileSheetOpen, setIsMobileSheetOpen] = React.useState(false);
   const [hasMounted, setHasMounted] = React.useState(false);
+
   const pathname = usePathname();
   const router = useRouter();
 
@@ -303,22 +131,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     setHasMounted(true);
   }, []);
 
-  const applyTheme = React.useCallback((themeToApply: Theme | undefined) => {
+  const applyTheme = React.useCallback((themeToApply: Theme | undefined | null) => {
     if (typeof window === 'undefined' || !themeToApply) return;
     document.documentElement.classList.remove("light", "dark");
     if (themeToApply === "dark") {
       document.documentElement.classList.add("dark");
     } else if (themeToApply === "light") {
-      // document.documentElement.classList.add("light"); // Only add dark, light is default
-    } else { // system
+      // document.documentElement.classList.add("light"); // Light is default
+    } else {
       if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
         document.documentElement.classList.add("dark");
+      } else {
+         document.documentElement.classList.remove('dark');
       }
     }
   }, []);
 
   React.useEffect(() => {
-    if (!hasMounted) return; // Don't run on server or first client render before mount
+    if (!hasMounted) return;
 
     let themeApplied: Theme = 'system';
     let langApplied: 'es' | 'en' = 'es';
@@ -337,24 +167,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       } else {
         const storedTheme = localStorage.getItem("theme") as Theme | null;
         themeApplied = storedTheme || 'system';
-        localStorage.setItem("theme", themeApplied); // Save default if not set
+        localStorage.setItem("theme", themeApplied);
         const storedLang = localStorage.getItem("language") as 'es' | 'en' | null;
         langApplied = storedLang || 'es';
-        localStorage.setItem("language", langApplied); // Save default if not set
+        localStorage.setItem("language", langApplied);
       }
     }
     applyTheme(themeApplied);
     setCurrentLanguage(langApplied);
-
   }, [userProfile, authLoading, applyTheme, hasMounted]);
 
-
   React.useEffect(() => {
-    if (isMobileSheetOpen) {
+    if (isMobileSheetOpen && hasMounted) {
       setIsMobileSheetOpen(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [pathname, hasMounted]);
 
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -369,7 +196,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   const handleLanguageChange = async (lang: 'es' | 'en') => {
-    if (!hasMounted) return; // Ensure component is mounted
+    if (!hasMounted) return;
 
     setCurrentLanguage(lang);
     localStorage.setItem("language", lang);
@@ -382,27 +209,28 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     if (user && user.uid) {
       try {
         const userDocRef = doc(db, "users", user.uid);
-        const updatedProfileData: Partial<UserProfile> = { idioma: lang };
+        const updatedProfileData: Partial<UserProfileType> = { idioma: lang };
         
-        // Get current profile to merge, or create if doesn't exist
-        const currentFirestoreProfile = (await getDoc(userDocRef)).data() as UserProfile | undefined;
-        const profileToSave : UserProfile = {
-            ...(currentFirestoreProfile || { 
-                uid: user.uid, 
-                nombre: user.displayName || "Estudiante de Pruebas", 
-                correo: user.email || "test@example.com",
-                tema: "system",
-                fotoPerfil: `https://placehold.co/40x40.png?text=${(user.displayName || "ET").substring(0,2)}`,
-             }),
-            ...updatedProfileData,
-        };
-        
-        await setDoc(userDocRef, profileToSave, { merge: true });
-        setUserProfileState(profileToSave); // Optimistic update
-
+        if (userProfile) {
+            setUserProfileState({ ...userProfile, ...updatedProfileData });
+        } else {
+            const baseProfile: UserProfileType = {
+                uid: user.uid,
+                nombre: user.displayName || "Estudiante de Pruebas",
+                correo: user.email || "test@darkaischool.tech",
+                tema: (localStorage.getItem("theme") as Theme) || "system",
+                idioma: lang,
+                fotoPerfil: user.photoURL || `https://placehold.co/40x40.png?text=ET`,
+                isAdmin: false,
+            };
+            setUserProfileState(baseProfile);
+            await setDoc(userDocRef, baseProfile, { merge: true });
+            return; 
+        }
+        await updateDoc(userDocRef, updatedProfileData);
       } catch (error) {
         console.error("Error updating language in Firestore:", error);
-        toast({ title: "Error", description: T.languageSaveError, variant: "destructive" });
+        toast({ title: "Error de Sincronización", description: T.languageSaveError, variant: "destructive" });
       }
     }
   };
@@ -410,161 +238,290 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     try {
       await firebaseSignOut(auth);
-      toast({ title: "Sesión Cerrada", description: "Has cerrado tu sesión exitosamente." });
-      // useFirebaseAuth hook will update user state to null
-      router.push('/home'); // Or your preferred logout destination
+      toast({ title: T.navLogout, description: "Has cerrado tu portal en DarkAISchool." });
+      // Consider redirecting to a login page or home page after logout
+      // router.push('/login'); 
     } catch (error) {
       console.error("Error signing out: ", error);
-      toast({ title: "Error", description: "No se pudo cerrar la sesión.", variant: "destructive" });
+      toast({ title: "Error de Cierre", description: "No se pudo cerrar la sesión.", variant: "destructive" });
     }
   };
-
-  const getNavItemTitle = React.useCallback((itemKey: string, langT: AppLayoutTextsType): string => {
-    const itemDetail = userNavItemsListDetails.find(detail => detail.key === itemKey);
-    if (!itemDetail) return itemKey;
-
-    switch (itemKey) {
-      case 'settings': return langT.navSettings;
-      case 'aiAssistant': return langT.navAiAssistant;
-      case 'myForums': return langT.navMyForums;
-      case 'favorites': return langT.navFavorites;
-      case 'logout': return langT.navLogout;
-      default: return itemDetail.defaultTitle;
+  
+  const getNavItemTitle = React.useCallback((item: NavItem | UserNavItem, langT: AppLayoutTextsType): string => {
+    if ('key' in item && typeof item.key === 'string') { 
+      switch (item.key) {
+        case 'home': return langT.navPanel;
+        case 'forums': return langT.navForums;
+        case 'recovery-access': return langT.navRecovery;
+        case 'study-materials': return langT.navMaterials;
+        default: return item.title;
+      }
+    } else { 
+        const detail = userNavItemsListDetails.find(d => d.defaultTitle === item.title || (d.href === (item as UserNavItem).href));
+        if(detail) {
+            switch (detail.key) {
+                case 'settings': return langT.navSettings;
+                case 'aiAssistant': return langT.navAiAssistant;
+                case 'myForums': return langT.navMyForums;
+                case 'favorites': return langT.navFavorites;
+                case 'logout': return langT.navLogout;
+                default: return item.title;
+            }
+        }
     }
+    return item.title;
   }, []);
 
-  const userNavItemsList = React.useMemo(() =>
+  const userNavItemsList: UserNavItem[] = React.useMemo(() =>
     userNavItemsListDetails.map(detail => ({
-      title: getNavItemTitle(detail.key, T),
+      title: getNavItemTitle({ ...detail, title: detail.defaultTitle } as UserNavItem, T),
       href: detail.href,
       icon: detail.icon,
       action: detail.actionKey === 'logoutAction' ? handleLogout : undefined,
-      disabled: authLoading && detail.key !== 'settings', // Keep settings enabled, disable others while loading
-    })),
-    [T, handleLogout, getNavItemTitle, authLoading]);
+      disabled: authLoading && detail.key !== 'settings',
+      key: detail.key,
+    })), [T, handleLogout, getNavItemTitle, authLoading]);
 
+  const mainNavItemsList: NavItem[] = React.useMemo(() =>
+    mainNavItemsData.map(item => ({
+      ...item,
+      title: getNavItemTitle(item, T),
+    })), [T, getNavItemTitle]);
 
-  if (!hasMounted) { // Render nothing or a minimal loader on the server and initial client render
+  const UserDesktopSidebar = () => {
+    const [isCollapsed, setIsCollapsed] = React.useState(false);
+    const [sidebarHasMounted, setSidebarHasMounted] = React.useState(false);
+
+    React.useEffect(() => {
+      setSidebarHasMounted(true);
+      if (typeof window !== 'undefined') {
+        const storedState = localStorage.getItem('sidebarCollapsed_v2');
+        if (storedState !== null) {
+          try {
+            setIsCollapsed(JSON.parse(storedState));
+          } catch (e) {
+            console.error("Error parsing sidebarCollapsed_v2 from localStorage", e);
+            setIsCollapsed(false);
+          }
+        } else {
+          setIsCollapsed(false);
+        }
+      }
+    }, []);
+
+    const toggleCollapse = React.useCallback(() => {
+      if (sidebarHasMounted) {
+        setIsCollapsed(prevState => {
+          const newState = !prevState;
+          localStorage.setItem('sidebarCollapsed_v2', JSON.stringify(newState));
+          return newState;
+        });
+      }
+    }, [sidebarHasMounted]);
+
+    if (!user || authLoading || !sidebarHasMounted) {
+      return null;
+    }
+
     return (
-       <div className="flex min-h-screen w-full animate-pulse">
+      <aside className={cn(
+        "hidden md:fixed md:inset-y-0 md:left-0 md:z-40 md:flex md:flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out text-sidebar-foreground shadow-lg",
+        isCollapsed ? "md:w-20" : "md:w-60"
+      )}
+      >
+        <div className={cn("flex items-center border-b border-sidebar-border px-4", isCollapsed ? "justify-center h-16" : "h-16")}>
+          {!isCollapsed && (
+            <Link href="/home" className="flex items-center gap-2 group">
+              <BrainCircuit className="h-8 w-8 text-primary group-hover:techno-glow-primary transition-all duration-300" />
+              <span className="font-bold text-lg text-sidebar-foreground group-hover:text-primary transition-colors">DarkAISchool</span>
+            </Link>
+          )}
+          <Button variant="ghost" size="icon" onClick={toggleCollapse} className={cn("text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-full", isCollapsed ? "absolute top-3 left-1/2 -translate-x-1/2" : "ml-auto")}>
+            <Menu className={cn("h-5 w-5 transition-transform duration-300", isCollapsed ? "rotate-180" : "")} />
+          </Button>
+        </div>
+        <ScrollArea className="flex-1 py-3">
+          <nav className="grid gap-1.5 px-3">
+            {userNavItemsList.map((item) => (
+              <Tooltip key={item.key || item.title} open={isCollapsed ? undefined : false}>
+                <TooltipTrigger asChild>
+                  {item.href ? (
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all duration-200 ease-in-out hover:bg-sidebar-accent hover:text-primary hover:scale-105 hover:shadow-md",
+                        (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/home')) && "bg-sidebar-primary text-sidebar-primary-foreground font-semibold shadow-lg techno-glow-primary",
+                        isCollapsed && "justify-center",
+                        item.disabled && "opacity-50 cursor-not-allowed"
+                      )}
+                      aria-disabled={item.disabled}
+                      onClick={(e) => { if (item.disabled) e.preventDefault(); }}
+                    >
+                      <item.icon className={cn("h-5 w-5 shrink-0", isCollapsed ? "mx-auto" : "", (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/home')) ? "text-sidebar-primary-foreground" : "text-primary" )} />
+                      {!isCollapsed && <span>{item.title}</span>}
+                    </Link>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      className={cn(
+                        "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all duration-200 ease-in-out hover:bg-sidebar-accent hover:text-primary hover:scale-105 hover:shadow-md justify-start",
+                        isCollapsed && "justify-center",
+                        item.disabled && "opacity-50 cursor-not-allowed"
+                      )}
+                      onClick={(e) => {
+                        if (item.disabled) e.preventDefault();
+                        else item.action?.();
+                      }}
+                      disabled={item.disabled}
+                    >
+                      <item.icon className={cn("h-5 w-5 shrink-0", isCollapsed ? "mx-auto" : "", "text-primary")} />
+                      {!isCollapsed && <span>{item.title}</span>}
+                    </Button>
+                  )}
+                </TooltipTrigger>
+                {isCollapsed && <TooltipContent side="right" className="bg-popover text-popover-foreground border-border shadow-xl"><p>{item.title}</p></TooltipContent>}
+              </Tooltip>
+            ))}
+          </nav>
+        </ScrollArea>
+         {user && !isCollapsed && (
+            <div className="mt-auto p-3 border-t border-sidebar-border">
+              { authLoading ? (
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-9 w-9 rounded-full bg-muted" />
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-4 w-24 bg-muted" />
+                    <Skeleton className="h-3 w-32 bg-muted" />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-9 w-9 border-2 border-primary techno-glow-primary">
+                    <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "Piloto"} data-ai-hint="user avatar small" />
+                    <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">
+                      {user.displayName?.substring(0, 2).toUpperCase() || (user.email ? user.email.substring(0, 2).toUpperCase() : "DS")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-semibold text-sidebar-foreground truncate max-w-[140px]">{user.displayName || T.loadingUser}</p>
+                    <p className="text-xs text-muted-foreground truncate max-w-[140px]">{user.email}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+      </aside>
+    );
+  };
+
+  if (!hasMounted || authLoading) {
+    return (
+       <div className="flex min-h-screen w-full animate-pulse bg-background">
         <div className="hidden md:flex md:w-60 flex-col border-r bg-sidebar p-4 space-y-3">
             <Skeleton className="h-8 w-3/4 bg-muted" />
-            {[...Array(5)].map((_,i) => <Skeleton key={i} className="h-9 w-full bg-muted" />)}
+            {[...Array(5)].map((_,i) => <Skeleton key={i} className="h-9 w-full bg-muted rounded-md" />)}
             <div className="mt-auto space-y-2">
-                <Skeleton className="h-9 w-full bg-muted" />
-                <Skeleton className="h-9 w-full bg-muted" />
+                <Skeleton className="h-10 w-full bg-muted rounded-md" />
             </div>
         </div>
         <div className="flex flex-col flex-1">
-          <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6 shadow-sm">
-            <div className="h-8 w-8 bg-muted rounded-md md:hidden"></div>
-            <div className="h-6 w-32 bg-muted rounded-md"></div>
+          <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6 shadow-md">
+            <Skeleton className="h-8 w-8 bg-muted rounded-md md:hidden" />
+            <Skeleton className="h-8 w-36 bg-muted rounded-md" />
             <div className="hidden md:flex flex-1 justify-center gap-2">
-              {[1,2,3,4].map(i => <div key={i} className="h-8 w-24 bg-muted rounded-md"></div>)}
+              {[1,2,3,4].map(i => <Skeleton key={i} className="h-9 w-28 bg-muted rounded-md" />)}
             </div>
             <div className="flex items-center gap-3 ml-auto">
-              <div className="hidden sm:block h-9 w-48 bg-muted rounded-md"></div>
-              <div className="h-9 w-9 bg-muted rounded-md"></div>
-              <div className="h-9 w-9 bg-muted rounded-md"></div>
-              <div className="h-9 w-9 bg-muted rounded-full"></div>
+              <Skeleton className="hidden sm:block h-9 w-48 bg-muted rounded-md" />
+              <Skeleton className="h-9 w-9 bg-muted rounded-full" />
+              <Skeleton className="h-9 w-9 bg-muted rounded-full" />
+              <Skeleton className="h-9 w-9 bg-muted rounded-full" />
             </div>
           </header>
           <main className="flex-1 p-4 md:p-6 lg:p-8 bg-background">
-             <Skeleton className="h-10 w-1/2 bg-muted rounded-lg mb-4" />
-             <Skeleton className="h-64 w-full bg-muted rounded-lg" />
+             <Skeleton className="h-12 w-1/2 bg-muted rounded-lg mb-6" />
+             <Skeleton className="h-72 w-full bg-muted rounded-lg" />
           </main>
         </div>
       </div>
     );
   }
-
-  const sidebarWidthClass = "md:ml-60";
+  
+  const sidebarMarginClass = (user && !authLoading) 
+    ? (localStorage.getItem('sidebarCollapsed_v2') === 'true' ? "md:ml-20" : "md:ml-60") 
+    : "md:ml-0";
 
   return (
     <TooltipProvider>
-      <div className="flex min-h-screen w-full">
-        {user && !authLoading && ( // Only render sidebar if user is loaded and present
-          <UserDesktopSidebar
-            currentLanguage={currentLanguage}
-            T={T}
-            pathname={pathname}
-            user={user}
-            handleLogout={handleLogout}
-            userNavItems={userNavItemsList}
-            userProfileLoading={authLoading}
-          />
-        )}
-
-        <div className={cn("flex flex-col flex-1 transition-all duration-300 ease-in-out", user && !authLoading ? sidebarWidthClass : "md:ml-0")}>
-          <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6 shadow-sm">
+      <div className="flex min-h-screen w-full bg-background">
+        <UserDesktopSidebar />
+        
+        <div className={cn(
+          "flex flex-col flex-1 transition-all duration-300 ease-in-out",
+          sidebarMarginClass
+        )}>
+          <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-background/80 backdrop-blur-sm px-4 sm:px-6 shadow-sm">
             <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="md:hidden shrink-0">
+                <Button variant="ghost" size="icon" className="md:hidden shrink-0 text-foreground hover:bg-accent hover:text-accent-foreground rounded-full">
                   <Menu className="h-5 w-5" />
                   <span className="sr-only">Abrir menú de navegación</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="flex flex-col p-0 max-w-xs w-full sm:max-w-sm bg-card border-r">
-                <div className="flex h-16 items-center justify-between px-4 border-b">
-                  <Link href="/home" className="flex items-center gap-2" onClick={() => setIsMobileSheetOpen(false)}>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="h-7 w-7">
-                      <rect width="256" height="256" fill="none"></rect>
-                      <path d="M41.4,104.6C22.8,123.1,16,144,16,160a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,104.6Z" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
-                      <path d="M113.4,104.6c18.6-18.5,25.4-39.4,25.4-55.4a64,64,0,0,0-128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,0,50.2,22.1A71.8,71.8,0,0,0,113.4,104.6Z" transform="translate(256 48) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
-                      <path d="M41.4,151.4c-18.6,18.5-25.4,39.4-25.4,55.4a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,151.4Z" transform="translate(48 256) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
-                      <path d="M113.4,151.4c-18.6-18.5-25.4-39.4-25.4-55.4a64,64,0,0,1,128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,1-50.2,22.1A71.8,71.8,0,0,1,113.4,151.4Z" transform="translate(256 208) rotate(180)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
-                    </svg>
-                    <span className="font-bold text-lg text-foreground">DarkAISchool</span>
+              <SheetContent side="left" className="flex flex-col p-0 max-w-xs w-full sm:max-w-sm bg-card border-r border-border shadow-xl">
+                <div className="flex h-16 items-center justify-between px-4 border-b border-border">
+                  <Link href="/home" className="flex items-center gap-2 group" onClick={() => setIsMobileSheetOpen(false)}>
+                    <BrainCircuit className="h-7 w-7 text-primary group-hover:techno-glow-primary transition-all duration-300" />
+                    <span className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">DarkAISchool</span>
                   </Link>
                   <SheetClose asChild>
-                    <Button variant="ghost" size="icon"> <X className="h-5 w-5" /> <span className="sr-only">Cerrar menú</span></Button>
+                    <Button variant="ghost" size="icon" className="rounded-full"> <X className="h-5 w-5" /> <span className="sr-only">Cerrar menú</span></Button>
                   </SheetClose>
                 </div>
                 <ScrollArea className="flex-1">
                   <nav className="grid gap-2 p-4">
                     <h3 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{T.mainNavigation}</h3>
-                    {mainNavItemsData.map((item) => (
+                    {mainNavItemsList.map((item) => (
                       <SheetClose asChild key={item.key}>
                         <Link
                           href={item.href}
                           className={cn(
-                            "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-accent",
-                            (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/home') || (pathname === '/' && item.href === '/home')) && "bg-accent text-primary font-medium"
+                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground transition-all hover:text-primary hover:bg-accent hover:scale-105",
+                            (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/home') || (pathname === '/' && item.href === '/home')) && "bg-accent text-primary font-semibold techno-glow-primary"
                           )}
                         >
-                          <item.icon className="h-4 w-4" />
+                          <item.icon className="h-5 w-5 text-primary" />
                           {item.title}
                         </Link>
                       </SheetClose>
                     ))}
-                    {user && !authLoading && ( // Only show user nav if user is loaded
+                    {user && !authLoading && ( 
                       <>
-                        <Separator className="my-3" />
+                        <Separator className="my-3 bg-border"/>
                         <h3 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{T.userNavigation}</h3>
                         {userNavItemsList.map((item) => (item.href ?
-                          (<SheetClose asChild key={item.title}>
+                          (<SheetClose asChild key={item.key || item.title}>
                             <Link
                               href={item.href}
                               className={cn(
-                                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-accent",
+                                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground transition-all hover:text-primary hover:bg-accent hover:scale-105",
                                 item.disabled && "opacity-50 cursor-not-allowed",
-                                pathname === item.href && !item.disabled && "bg-accent text-primary font-medium"
+                                pathname === item.href && !item.disabled && "bg-accent text-primary font-medium techno-glow-primary"
                               )}
                               onClick={(e) => {
-                                if (item.disabled) e.preventDefault();
+                                if (item.disabled) { e.preventDefault(); }
                               }}
                               aria-disabled={item.disabled}
-                              tabIndex={item.disabled ? -1 : undefined}
                             >
-                              <item.icon className="h-4 w-4" />
+                              <item.icon className="h-5 w-5 text-primary" />
                               {item.title}
                             </Link>
                           </SheetClose>) : (
-                          <SheetClose asChild key={item.title}>
+                          <SheetClose asChild key={item.key || item.title}>
                             <Button
                               variant="ghost"
                               className={cn(
-                                "w-full justify-start flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-accent",
+                                "w-full justify-start flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground transition-all hover:text-primary hover:bg-accent hover:scale-105",
                                 item.disabled && "opacity-50 cursor-not-allowed"
                               )}
                               onClick={(e) => {
@@ -576,7 +533,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                               }}
                               disabled={item.disabled}
                             >
-                              <item.icon className="h-4 w-4" />
+                              <item.icon className="h-5 w-5 text-primary" />
                               {item.title}
                             </Button>
                           </SheetClose>
@@ -587,14 +544,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   </nav>
                 </ScrollArea>
                 {user && !authLoading && (
-                  <div className="mt-auto p-4 border-t">
+                  <div className="mt-auto p-4 border-t border-border">
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "Usuario"} data-ai-hint="user avatar" />
-                        <AvatarFallback>{user.displayName?.substring(0, 2).toUpperCase() || "ET"}</AvatarFallback>
+                       <Avatar className="h-10 w-10 border-2 border-primary techno-glow-primary">
+                        <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "Piloto"} data-ai-hint="user avatar" />
+                        <AvatarFallback className="bg-secondary text-secondary-foreground">{user.displayName?.substring(0, 2).toUpperCase() || "DS"}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm font-medium text-foreground">{user.displayName || T.loadingUser}</p>
+                        <p className="text-sm font-semibold text-foreground">{user.displayName || T.loadingUser}</p>
                         <p className="text-xs text-muted-foreground">{user.email}</p>
                       </div>
                     </div>
@@ -602,21 +559,37 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 )}
               </SheetContent>
             </Sheet>
-
-            <div className="hidden md:flex flex-1 justify-center">
-              <DesktopNav currentLanguage={currentLanguage} T={T} pathname={pathname} />
+            
+            <div className="hidden md:block font-bold text-xl text-primary ml-2">
+              { (localStorage.getItem('sidebarCollapsed_v2') === 'true' && user && !authLoading) && "DAS" }
             </div>
 
-            <div className={cn("flex items-center gap-2 sm:gap-3 ml-auto")}>
+            <nav className="hidden md:flex flex-1 items-center justify-center gap-1">
+                {mainNavItemsList.map((item: NavItem) => (
+                    <Button
+                    key={item.key}
+                    asChild
+                    variant={pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/home') || (pathname === '/' && item.href === '/home') ? "secondary" : "ghost"}
+                    className="text-sm font-medium hover:scale-105 hover:brightness-110 transition-transform duration-150"
+                    >
+                    <Link href={item.href} className="flex items-center gap-1.5 px-3 py-2">
+                        <item.icon className="h-4 w-4 text-primary/90" />
+                        {item.title}
+                    </Link>
+                    </Button>
+                ))}
+            </nav>
+
+            <div className={cn("flex items-center gap-1 sm:gap-1.5 ml-auto")}>
               <form className="hidden sm:block" onSubmit={handleSearchSubmit}>
                 <div className="relative">
                   <Input
                     type="search"
                     name="search"
                     placeholder={T.searchPlaceholder}
-                    className="pl-8 w-full sm:w-[200px] md:w-[250px] lg:w-[300px] bg-input border-input h-9"
+                    className="pl-8 w-full sm:w-[150px] md:w-[180px] lg:w-[220px] bg-input border-input h-9 rounded-full focus:techno-glow-primary text-sm"
                   />
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
+                   <span className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
                   </span>
                 </div>
@@ -624,13 +597,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <ThemeToggleButton />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Cambiar idioma" className="text-foreground hover:text-accent-foreground hover:bg-accent">
-                    <Globe className="h-5 w-5" />
+                  <Button variant="ghost" size="icon" aria-label="Cambiar idioma" className="text-foreground hover:bg-accent hover:text-accent-foreground rounded-full h-9 w-9 hover:scale-110 transition-transform">
+                    <Globe className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-popover text-popover-foreground">
-                  <DropdownMenuItem onClick={() => handleLanguageChange('es')}>Español</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleLanguageChange('en')}>English</DropdownMenuItem>
+                <DropdownMenuContent align="end" className="bg-popover text-popover-foreground border-border shadow-xl w-40">
+                  <DropdownMenuItem onClick={() => handleLanguageChange('es')} className="hover:bg-accent cursor-pointer">Español</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleLanguageChange('en')} className="hover:bg-accent cursor-pointer">English</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -639,52 +612,52 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               ) : user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "Usuario"} data-ai-hint="user avatar" />
-                        <AvatarFallback>{user.displayName?.substring(0, 2).toUpperCase() || (user.email ? user.email.substring(0, 2).toUpperCase() : "U")}</AvatarFallback>
+                    <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 hover:scale-110 transition-transform">
+                      <Avatar className="h-9 w-9 border-2 border-primary techno-glow-primary">
+                        <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "Piloto"} data-ai-hint="user avatar small" />
+                        <AvatarFallback className="bg-secondary text-secondary-foreground text-xs">{user.displayName?.substring(0, 2).toUpperCase() || (user.email ? user.email.substring(0, 2).toUpperCase() : "DS")}</AvatarFallback>
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 bg-popover text-popover-foreground" align="end" forceMount>
+                  <DropdownMenuContent className="w-60 bg-popover text-popover-foreground border-border shadow-xl" align="end" forceMount>
                     <DropdownMenuLabel className="font-normal">
-                      <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none text-foreground">{user.displayName || T.loadingUser}</p>
+                      <div className="flex flex-col space-y-1 py-1">
+                        <p className="text-sm font-semibold leading-none text-foreground">{user.displayName || T.loadingUser}</p>
                         <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
                       </div>
                     </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
+                    <DropdownMenuSeparator className="bg-border"/>
                     <DropdownMenuGroup>
                       {userNavItemsList.filter(item => item.href).map(item => (
-                        <DropdownMenuItem key={item.title} asChild disabled={item.disabled}>
-                          <Link href={item.href!} className={cn("flex items-center", item.disabled && "opacity-50 cursor-not-allowed")}>
-                            <item.icon className="mr-2 h-4 w-4" />
+                        <DropdownMenuItem key={item.key || item.title} asChild disabled={item.disabled} className="hover:bg-accent cursor-pointer">
+                          <Link href={item.href!} className={cn("flex items-center w-full", item.disabled && "opacity-50 cursor-not-allowed")}>
+                            <item.icon className="mr-2 h-4 w-4 text-primary" />
                             <span>{item.title}</span>
                           </Link>
                         </DropdownMenuItem>
                       ))}
                     </DropdownMenuGroup>
-                    <DropdownMenuSeparator />
-                    {userNavItemsList.find(item => item.action) && (
+                    <DropdownMenuSeparator className="bg-border"/>
+                    {userNavItemsList.find(item => item.actionKey === 'logoutAction') && (
                       <DropdownMenuItem
-                        onClick={!userNavItemsList.find(item => item.action)?.disabled ? userNavItemsList.find(item => item.action)?.action : undefined}
-                        className={cn("cursor-pointer flex items-center", userNavItemsList.find(item => item.action)?.disabled && "opacity-50 cursor-not-allowed")}
-                        disabled={userNavItemsList.find(item => item.action)?.disabled}
+                        onClick={!userNavItemsList.find(item => item.actionKey === 'logoutAction')?.disabled ? handleLogout : undefined}
+                        className={cn("cursor-pointer flex items-center hover:bg-accent", userNavItemsList.find(item => item.actionKey === 'logoutAction')?.disabled && "opacity-50 cursor-not-allowed")}
+                        disabled={userNavItemsList.find(item => item.actionKey === 'logoutAction')?.disabled}
                       >
-                        <LogOut className="mr-2 h-4 w-4" />
-                        <span>{userNavItemsList.find(item => item.action)!.title}</span>
+                        <LogOutIcon className="mr-2 h-4 w-4 text-destructive" />
+                        <span className="text-destructive">{userNavItemsList.find(item => item.actionKey === 'logoutAction')!.title}</span>
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <Tooltip>
+                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={() => router.push('/home')} aria-label={T.loginSimulated} className="text-foreground hover:text-accent-foreground hover:bg-accent">
-                      <UserIcon className="h-5 w-5" />
+                    <Button variant="ghost" size="icon" onClick={() => router.push('/home')} aria-label={T.loginSimulated} className="text-foreground hover:bg-accent hover:text-accent-foreground rounded-full h-9 w-9">
+                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-user-round h-5 w-5"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent className="bg-popover text-popover-foreground">
+                  <TooltipContent className="bg-popover text-popover-foreground border-border shadow-xl">
                     <p>{T.loginSimulated}</p>
                   </TooltipContent>
                 </Tooltip>

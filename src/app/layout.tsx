@@ -1,17 +1,15 @@
+
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Figtree } from 'next/font/google'; // Changed from Geist
 import './globals.css';
 import { AppLayout } from '@/components/layout/app-layout';
 import { Toaster } from "@/components/ui/toaster";
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+// Configure Figtree font
+const figtree = Figtree({
   subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
+  variable: '--font-figtree', // Use a CSS variable
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -25,8 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="es" suppressHydrationWarning> {/* Added suppressHydrationWarning for theme handling */}
+      <body className={`${figtree.variable} font-sans antialiased`}> {/* Apply font variable and a sans-serif fallback */}
         <AppLayout>
           {children}
         </AppLayout>
