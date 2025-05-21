@@ -18,7 +18,7 @@ import { Sparkles, Send, User, Bot, Image as ImageIcon, AlertCircle } from 'luci
 import NextImage from 'next/image';
 import { askStudyAssistant, type StudyAssistantInput, type StudyAssistantOutput } from '@/ai/flows/study-assistant-flow';
 import { useToast } from '@/hooks/use-toast';
-import { Skeleton } from '../ui/skeleton';
+import { Skeleton } from '../ui/skeleton'; // Skeleton was not used, but kept in imports
 import { Avatar } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -37,6 +37,12 @@ interface StudyAssistantDialogProps {
   triggerButton?: React.ReactNode;
 }
 
+// Helper to generate more unique IDs
+const generateUniqueId = (prefix: string) => {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+};
+
+
 export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAssistantDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -47,7 +53,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const getWelcomeMessage = useCallback((lang: 'es' | 'en'): Message => ({
-    id: `welcome-${lang}`, // More stable ID
+    id: `nova-welcome-${lang}`, // Stable ID using only lang
     type: 'assistant',
     text: lang === 'es' ? '¡Hola! Soy Nova 🚀, tu Asistente de Estudio IA en DarkAIschool. ¿En qué aventura de aprendizaje nos embarcamos hoy?' : "Hi! I'm Nova 🚀, your DarkAIschool AI Study Assistant. What learning adventure are we embarking on today?",
   }), []);
@@ -55,14 +61,12 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
   useEffect(() => {
     if (isOpen) {
       const welcomeMsg = getWelcomeMessage(currentLanguage);
-      // Set welcome message if messages is empty or the first message is not the current welcome message
-      if (messages.length === 0 || messages[0].id !== welcomeMsg.id) {
+      if (messages.length === 0 || messages[0]?.id !== welcomeMsg.id) {
         setMessages([welcomeMsg]);
       }
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen, currentLanguage, getWelcomeMessage]); // 'messages' removed from dependency array
-
+  }, [isOpen, currentLanguage, getWelcomeMessage]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -78,13 +82,14 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
     if (!currentQuery || isResponding) return;
 
     const userMessage: Message = {
-      id: 'user-' + Date.now(),
+      id: generateUniqueId('user'),
       type: 'user',
       text: currentQuery,
     };
     
+    const assistantLoadingMessageId = generateUniqueId('assistant-loading');
     const assistantLoadingMessage: Message = {
-      id: 'assistant-loading-' + Date.now(),
+      id: assistantLoadingMessageId,
       type: 'assistant',
       isLoading: true,
     };
@@ -96,7 +101,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
     const lowerQuery = currentQuery.toLowerCase();
     const generateImageExplicitly = 
       lowerQuery.includes("imagen") ||
-      lowerQuery.includes("dibuj") || 
+      lowerQuery.includes("dibuja") || 
       lowerQuery.includes("diagrama") ||
       lowerQuery.includes("mapa") || 
       lowerQuery.includes("visual") || 
@@ -114,14 +119,18 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
       });
 
       const assistantResponseMessage: Message = {
-        id: 'assistant-' + Date.now(),
+        id: generateUniqueId('assistant-response'),
         type: 'assistant',
         text: assistantResponse.mainResponse,
         imageUrl: assistantResponse.generatedImageUrl,
         imageQuery: assistantResponse.imageQuerySuggestion,
         suggestions: assistantResponse.followUpSuggestions,
       };
-      setMessages(prev => prev.filter(m => !m.isLoading).concat(assistantResponseMessage));
+      
+      setMessages(prev => {
+        const newMessages = prev.filter(m => m.id !== assistantLoadingMessageId); // Remove loading message by its specific ID
+        return [...newMessages, assistantResponseMessage];
+      });
 
     } catch (error: any) {
       console.error('Error calling study assistant:', error);
@@ -132,11 +141,14 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
         title: currentLanguage === 'es' ? 'Error del Asistente Nova' : 'Nova Assistant Error',
         description: errorMessageText,
       });
-      setMessages(prev => prev.filter(m => !m.isLoading).concat({
-        id: 'error-' + Date.now(),
-        type: 'assistant',
-        text: errorMessageText,
-      }));
+      setMessages(prev => {
+        const newMessages = prev.filter(m => m.id !== assistantLoadingMessageId); // Remove loading message by its specific ID
+        return [...newMessages, {
+          id: generateUniqueId('error'),
+          type: 'assistant',
+          text: errorMessageText,
+        }];
+      });
     } finally {
       setIsResponding(false);
       inputRef.current?.focus();
@@ -144,7 +156,8 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
   };
   
   const handleSuggestionClick = (suggestion: string) => {
-    handleSendMessage(suggestion);
+    setInputValue(suggestion); // Set input value for potential edit
+    handleSendMessage(suggestion); // Send suggestion directly
   };
 
   const defaultTrigger = (
@@ -172,8 +185,8 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
     <>
       {triggerButton ? <div onClick={() => setIsOpen(true)}>{triggerButton}</div> : defaultTrigger}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-2xl h-[calc(100vh-4rem)] md:h-[80vh] flex flex-col p-0">
-          <DialogHeader className="p-4 border-b">
+        <DialogContent className="sm:max-w-2xl h-[calc(100vh-4rem)] md:h-[80vh] flex flex-col p-0 bg-card border-border">
+          <DialogHeader className="p-4 border-b border-border">
             <DialogTitle className="flex items-center gap-2 text-lg text-primary-foreground">
               <Sparkles className="h-5 w-5 text-primary" />
               {currentLanguage === 'es' ? 'Asistente IA Nova' : 'AI Assistant Nova'}
@@ -187,7 +200,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
             <div className="space-y-4 mb-4">
               {messages.map((msg) => (
                 <div
-                  key={msg.id}
+                  key={msg.id} 
                   className={`flex items-start gap-2.5 ${
                     msg.type === 'user' ? 'justify-end' : 'justify-start'
                   }`}
@@ -233,7 +246,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
                             <div className="flex flex-wrap gap-1.5">
                                 {msg.suggestions.map((sugg, index) => (
                                 <Button
-                                    key={index}
+                                    key={`${msg.id}-sugg-${index}`} 
                                     variant="outline"
                                     size="sm"
                                     className="text-xs h-auto py-1 px-2 border-primary/50 text-primary hover:bg-primary/10"
@@ -294,3 +307,5 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
     </>
   );
 }
+
+    
