@@ -23,13 +23,13 @@
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%; /* Mid gray */
 
-    --accent: 210 40% 96.1%; /* Light gray for hover/focus accents */
+    --accent: 210 40% 96.1%; /* Light gray for hover/focus accents on main content */
     --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 84.2% 60.2%; /* Red */
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%; /* Light border */
+    --border: 214.3 31.8% 91.4%; /* Light border for main content */
     
     --input-bg: 0 0% 100%; /* white */
     --input-border: 214.3 31.8% 91.4%;
@@ -42,14 +42,14 @@
     /* Sidebar specific colors (Light Theme) */
     --sidebar-background: 220 14% 97%; /* Very light gray, almost white */
     --sidebar-foreground: 222.2 47.4% 11.2%; /* Dark text */
-    --sidebar-primary: 207 82% 51%; /* Active item background (using accent) */
-    --sidebar-primary-foreground: 210 40% 98%; /* Active item text */
-    --sidebar-accent: 210 40% 92%; /* Hover item background - slightly darker gray */
+    --sidebar-primary: hsl(var(--primary)); /* Active item background */
+    --sidebar-primary-foreground: hsl(var(--primary-foreground)); /* Active item text */
+    --sidebar-accent: 210 40% 94%; /* Hover item background - slightly darker gray */
     --sidebar-accent-foreground: 222.2 47.4% 11.2%; /* Hover item text */
-    --sidebar-border: 214.3 31.8% 88%; /* Slightly darker border for sidebar */
-    --sidebar-ring: 207 82% 51%;
+    --sidebar-border: 214.3 31.8% 90%; /* Slightly different from main border for sidebar */
+    --sidebar-ring: hsl(var(--primary));
 
-    --chart-1: 207 82% 51%;
+    --chart-1: hsl(var(--primary));
     --chart-2: 173 58% 39%;
     --chart-3: 280 65% 60%;
     --chart-4: 43 74% 66%;
@@ -58,7 +58,7 @@
 
   .dark {
     /* Dark Theme */
-    --background: 220 11% 9%; /* #16181C */
+    --background: 220 11% 9%; /* #16181C - Main page background */
     --foreground: 216 13% 90%; /* #E1E3E6 */
     
     --card: 218 14% 13%; /* #1D2126 */
@@ -76,31 +76,31 @@
     --muted: 218 14% 25%; /* #353C46 */
     --muted-foreground: 216 10% 65%; /* #9CA1A8 */
 
-    --accent: 218 14% 20%; /* Using secondary as accent base for dark */
+    --accent: 218 14% 20%; /* Accent for main content */
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 72% 51%; /* #E53935 */
     --destructive-foreground: 0 0% 98%; /* #FAFAFA */
 
-    --border: 218 14% 22%; /* #303740 */
+    --border: 218 14% 22%; /* #303740 - Main content border */
     
     --input-bg: 220 10% 8%; /* #131517 */
     --input-border: 218 14% 20%; /* #2A3038 */
     --input: 218 14% 20%; 
 
-    --ring: 207 82% 51%; 
+    --ring: hsl(var(--primary)); 
 
     /* Sidebar specific colors (Dark Theme) */
-    --sidebar-background: 218 14% 10%; /* #181B1F */
+    --sidebar-background: 220 12% 11%; /* #1A1C21 - Slightly lighter than main bg */
     --sidebar-foreground: 216 13% 90%; /* #E1E3E6 */
-    --sidebar-primary: 207 82% 51%; 
-    --sidebar-primary-foreground: 210 40% 98%; 
-    --sidebar-accent: 218 14% 15%; 
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 218 14% 12%; /* #1A1D21 */
-    --sidebar-ring: 207 82% 51%;
+    --sidebar-primary: hsl(var(--primary)); /* Active item background */
+    --sidebar-primary-foreground: hsl(var(--primary-foreground)); /* Active item text */
+    --sidebar-accent: 220 10% 16%;  /* #24272E - Hover item background */
+    --sidebar-accent-foreground: 210 40% 98%; /* Hover item text */
+    --sidebar-border: 220 10% 15%; /* #21242B - Border for sidebar */
+    --sidebar-ring: hsl(var(--primary));
 
-    --chart-1: 207 82% 51%;
+    --chart-1: hsl(var(--primary));
     --chart-2: 173 58% 39%;
     --chart-3: 280 65% 60%;
     --chart-4: 43 74% 66%;
@@ -110,7 +110,7 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border; /* Default border for elements will be main content border */
   }
   body {
     @apply bg-background text-foreground;

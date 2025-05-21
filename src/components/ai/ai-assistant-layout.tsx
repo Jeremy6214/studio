@@ -6,11 +6,11 @@ import React, { useEffect } from 'react';
 import { ChatList } from './chat-list';
 import { ChatView } from './chat-view';
 import { useChatManager } from '@/hooks/useChatManager';
-import { useFirebaseAuth } from '@/hooks/useFirebaseAuth'; // To get current language
+import { useFirebaseAuth } from '@/hooks/useFirebaseAuth'; 
 
 export function AiAssistantLayout() {
-  const { userProfile } = useFirebaseAuth(); // Get userProfile for language preference
-  const initialLanguage = userProfile?.idioma || 'es'; // Default to 'es' if not set
+  const { userProfile } = useFirebaseAuth(); 
+  const initialLanguage = userProfile?.idioma || (typeof window !== 'undefined' && localStorage.getItem('language') as 'es' | 'en') || 'es';
 
   const {
     chatSessions,
@@ -22,21 +22,21 @@ export function AiAssistantLayout() {
     deleteChatSession,
     addMessageToSession,
     updateMessageInSession,
-    setCurrentLanguage: setChatManagerLanguage, // Specific setter for chat manager
+    setCurrentLanguage: setChatManagerLanguage, 
     renameChatSession,
   } = useChatManager(initialLanguage);
 
   // Sync chat manager language with app language from userProfile
   useEffect(() => {
-    if (userProfile?.idioma && userProfile.idioma !== currentLanguage) {
-      setChatManagerLanguage(userProfile.idioma);
+    const appLanguage = userProfile?.idioma || (typeof window !== 'undefined' && localStorage.getItem('language') as 'es' | 'en') || 'es';
+    if (appLanguage !== currentLanguage) {
+      setChatManagerLanguage(appLanguage);
     }
   }, [userProfile?.idioma, currentLanguage, setChatManagerLanguage]);
 
   return (
     <div className="flex h-[calc(100vh-var(--header-height,4rem)-2rem)] border border-border rounded-lg shadow-sm overflow-hidden bg-card">
-      {/* Header height is approx 4rem (h-16), plus some margin/padding (1rem top, 1rem bottom for parent = 2rem) */}
-      <div className="w-64 md:w-72 lg:w-80 flex-shrink-0">
+      <div className="w-64 md:w-72 lg:w-80 flex-shrink-0 bg-sidebar border-r border-sidebar-border">
         <ChatList
           sessions={chatSessions}
           activeSessionId={activeSessionId}
@@ -47,7 +47,7 @@ export function AiAssistantLayout() {
           currentLanguage={currentLanguage}
         />
       </div>
-      <div className="flex-grow border-l border-border">
+      <div className="flex-grow border-l border-border"> {/* Use main content border for separation */}
         <ChatView
           messages={activeChatMessages}
           activeSessionId={activeSessionId}
@@ -59,10 +59,3 @@ export function AiAssistantLayout() {
     </div>
   );
 }
-
-// Define --header-height in globals.css or AppLayout if not already standardized
-// For example, if your header is h-16 (4rem)
-// globals.css:
-// :root {
-//   --header-height: 4rem;
-// }

@@ -86,9 +86,9 @@ export function ChatList({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex flex-col h-full bg-muted/50 border-r border-border">
-        <div className="p-3 border-b border-border">
-          <Button onClick={onCreateNewChat} className="w-full" variant="default">
+      <div className="flex flex-col h-full text-sidebar-foreground"> {/* Use sidebar text color */}
+        <div className="p-3 border-b border-sidebar-border">
+          <Button onClick={onCreateNewChat} className="w-full" variant="default"> {/* Default button for primary action in sidebar */}
             <PlusCircle className="mr-2 h-5 w-5" />
             {T.newChat}
           </Button>
@@ -105,32 +105,32 @@ export function ChatList({
                       onChange={(e) => setEditText(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleRename(session.id)}
                       placeholder={T.editNamePlaceholder}
-                      className="h-8 flex-grow text-sm"
+                      className="h-8 flex-grow text-sm bg-input border-input text-foreground"
                       autoFocus
                     />
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRename(session.id)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" onClick={() => handleRename(session.id)}>
                           <Check className="h-4 w-4 text-green-500" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom"><p>{T.confirmRename}</p></TooltipContent>
+                      <TooltipContent side="bottom" className="bg-popover text-popover-foreground"><p>{T.confirmRename}</p></TooltipContent>
                     </Tooltip>
                      <Tooltip>
                        <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingSessionId(null); setEditText(''); }}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" onClick={() => { setEditingSessionId(null); setEditText(''); }}>
                           <X className="h-4 w-4 text-red-500" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom"><p>{T.cancelRename}</p></TooltipContent>
+                      <TooltipContent side="bottom" className="bg-popover text-popover-foreground"><p>{T.cancelRename}</p></TooltipContent>
                     </Tooltip>
                   </div>
                 ) : (
                   <Button
-                    variant={activeSessionId === session.id ? 'secondary' : 'ghost'}
+                    variant={'ghost'} // Always ghost for list items, active state handled by cn
                     className={cn(
-                      'w-full justify-start items-center text-sm h-auto py-2 px-3 text-left',
-                      activeSessionId === session.id && 'bg-primary/10 text-primary font-semibold'
+                      'w-full justify-start items-center text-sm h-auto py-2 px-3 text-left text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                      activeSessionId === session.id && 'bg-sidebar-primary text-sidebar-primary-foreground font-semibold'
                     )}
                     onClick={() => onSelectSession(session.id)}
                   >
@@ -142,30 +142,30 @@ export function ChatList({
                   <div className="absolute right-1 top-1/2 -translate-y-1/2 flex opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                     <Tooltip>
                        <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(session)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" onClick={() => startEdit(session)}>
                           <Edit3 className="h-4 w-4" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom"><p>{T.rename}</p></TooltipContent>
+                      <TooltipContent side="bottom" className="bg-popover text-popover-foreground"><p>{T.rename}</p></TooltipContent>
                     </Tooltip>
                     <AlertDialog>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </AlertDialogTrigger>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom"><p>{T.delete}</p></TooltipContent>
+                        <TooltipContent side="bottom" className="bg-popover text-popover-foreground"><p>{T.delete}</p></TooltipContent>
                       </Tooltip>
-                      <AlertDialogContent>
+                      <AlertDialogContent className="bg-card border-border">
                         <AlertDialogHeader>
-                          <AlertDialogTitle>{T.deleteChatTitle}</AlertDialogTitle>
-                          <AlertDialogDescription>{T.deleteChatDescription}</AlertDialogDescription>
+                          <AlertDialogTitle className="text-card-foreground">{T.deleteChatTitle}</AlertDialogTitle>
+                          <AlertDialogDescription className="text-muted-foreground">{T.deleteChatDescription}</AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>{T.cancel}</AlertDialogCancel>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => onDeleteSession(session.id)}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

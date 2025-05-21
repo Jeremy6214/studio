@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -40,8 +39,6 @@ import { userNavItemsListDetails } from './user-nav-items';
 import { signOut as firebaseSignOut } from 'firebase/auth'; 
 import { auth } from '@/lib/firebase';
 import { Skeleton } from '../ui/skeleton';
-// StudyAssistantDialog ya no se usa aquí
-// import { StudyAssistantDialog } from '@/components/ai/study-assistant-dialog';
 
 type Theme = "light" | "dark" | "system";
 
@@ -159,21 +156,23 @@ function UserDesktopSidebar({ currentLanguage, T, pathname, user, handleLogout, 
   userNavItems: UserNavItem[],
   userProfileLoading: boolean,
 }) {
-  const [isCollapsed, setIsCollapsed] = React.useState(false); // Control sidebar collapse state
+  const [isCollapsed, setIsCollapsed] = React.useState(false); 
 
-  // Retrieve collapse state from localStorage or default to false
   React.useEffect(() => {
-    const storedState = localStorage.getItem('sidebarCollapsed');
-    if (storedState) {
-      setIsCollapsed(JSON.parse(storedState));
+    if (typeof window !== 'undefined') {
+      const storedState = localStorage.getItem('sidebarCollapsed');
+      if (storedState) {
+        setIsCollapsed(JSON.parse(storedState));
+      }
     }
   }, []);
 
-  // Save collapse state to localStorage
   const toggleCollapse = () => {
     setIsCollapsed(prevState => {
       const newState = !prevState;
-      localStorage.setItem('sidebarCollapsed', JSON.stringify(newState));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sidebarCollapsed', JSON.stringify(newState));
+      }
       return newState;
     });
   };
@@ -181,11 +180,11 @@ function UserDesktopSidebar({ currentLanguage, T, pathname, user, handleLogout, 
 
   return (
     <aside className={cn(
-        "hidden md:fixed md:inset-y-0 md:left-0 md:z-40 md:flex md:flex-col border-r bg-card transition-all duration-300 ease-in-out",
-        isCollapsed ? "md:w-16" : "md:w-60" // Width for collapsed and expanded states
+        "hidden md:fixed md:inset-y-0 md:left-0 md:z-40 md:flex md:flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out text-sidebar-foreground",
+        isCollapsed ? "md:w-16" : "md:w-60" 
       )}
     >
-      <div className={cn("flex items-center border-b px-4", isCollapsed ? "justify-center h-16" : "h-16")}>
+      <div className={cn("flex items-center border-b border-sidebar-border px-4", isCollapsed ? "justify-center h-16" : "h-16")}>
         {!isCollapsed && (
            <Link href="/home" className="flex items-center gap-2">
              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="h-7 w-7">
@@ -195,10 +194,10 @@ function UserDesktopSidebar({ currentLanguage, T, pathname, user, handleLogout, 
                 <path d="M41.4,151.4c-18.6,18.5-25.4,39.4-25.4,55.4a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,151.4Z" transform="translate(48 256) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
                 <path d="M113.4,151.4c-18.6-18.5-25.4-39.4-25.4-55.4a64,64,0,0,1,128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,1-50.2,22.1A71.8,71.8,0,0,1,113.4,151.4Z" transform="translate(256 208) rotate(180)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
             </svg>
-            <span className="font-bold text-lg text-foreground">DarkAISchool</span>
+            <span className="font-bold text-lg text-sidebar-foreground">DarkAISchool</span>
           </Link>
         )}
-        <Button variant="ghost" size="icon" onClick={toggleCollapse} className={cn(isCollapsed ? "absolute top-3 left-1/2 -translate-x-1/2" : "ml-auto")}>
+        <Button variant="ghost" size="icon" onClick={toggleCollapse} className={cn("text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", isCollapsed ? "absolute top-3 left-1/2 -translate-x-1/2" : "ml-auto")}>
           <Menu className={cn("h-5 w-5 transition-transform duration-300", isCollapsed ? "rotate-180" : "")}/>
         </Button>
       </div>
@@ -211,8 +210,8 @@ function UserDesktopSidebar({ currentLanguage, T, pathname, user, handleLogout, 
                   <Link
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground",
-                      (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/home')) && "bg-primary/10 text-primary font-semibold",
+                      "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/home')) && "bg-sidebar-primary text-sidebar-primary-foreground font-semibold",
                       isCollapsed && "justify-center"
                     )}
                     aria-disabled={item.disabled}
@@ -225,7 +224,7 @@ function UserDesktopSidebar({ currentLanguage, T, pathname, user, handleLogout, 
                   <Button
                     variant="ghost"
                     className={cn(
-                      "w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground justify-start",
+                      "w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground justify-start",
                        isCollapsed && "justify-center"
                     )}
                     onClick={(e) => {
@@ -239,19 +238,19 @@ function UserDesktopSidebar({ currentLanguage, T, pathname, user, handleLogout, 
                   </Button>
                 )}
               </TooltipTrigger>
-              {isCollapsed && <TooltipContent side="right"><p>{item.title}</p></TooltipContent>}
+              {isCollapsed && <TooltipContent side="right" className="bg-popover text-popover-foreground"><p>{item.title}</p></TooltipContent>}
             </Tooltip>
           ))}
         </nav>
       </ScrollArea>
        {user && !isCollapsed && (
-          <div className="mt-auto p-3 border-t">
+          <div className="mt-auto p-3 border-t border-sidebar-border">
             { userProfileLoading ? (
               <div className="flex items-center gap-3">
-                <Skeleton className="h-9 w-9 rounded-full" />
+                <Skeleton className="h-9 w-9 rounded-full bg-muted" />
                 <div className="space-y-1">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="h-4 w-24 bg-muted" />
+                  <Skeleton className="h-3 w-32 bg-muted" />
                 </div>
               </div>
             ) : (
@@ -261,7 +260,7 @@ function UserDesktopSidebar({ currentLanguage, T, pathname, user, handleLogout, 
                   <AvatarFallback>{user.displayName?.substring(0,2).toUpperCase() || (user.email ? user.email.substring(0,2).toUpperCase() : "ET")}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-sm font-medium text-foreground truncate max-w-[150px]">{user.displayName || T.loadingUser}</p>
+                  <p className="text-sm font-medium text-sidebar-foreground truncate max-w-[150px]">{user.displayName || T.loadingUser}</p>
                   <p className="text-xs text-muted-foreground truncate max-w-[150px]">{user.email}</p>
                 </div>
               </div>
@@ -289,7 +288,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     if (themeToApply === "dark") {
       document.documentElement.classList.add("dark");
     } else if (themeToApply === "light") {
-      // document.documentElement.classList.add("light"); // Only add dark, light is default
+      // document.documentElement.classList.add("light"); // Only add dark, light is default via lack of .dark
     } else { // system
       if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
         document.documentElement.classList.add("dark");
@@ -300,38 +299,48 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   React.useEffect(() => {
-    let themeToApply: Theme = 'system';
-    let langToApply: 'es' | 'en' = 'es';
+    let themeApplied: Theme = 'system';
+    let langApplied: 'es' | 'en' = 'es';
 
-    if (userProfileLoading) {
-      const storedTheme = localStorage.getItem("theme") as Theme | null;
-      if (storedTheme) applyTheme(storedTheme);
-      const storedLang = localStorage.getItem("language") as 'es' | 'en' | null;
-      if (storedLang) setCurrentLanguage(storedLang);
-    } else {
-      if (userProfile) {
-        themeToApply = userProfile.tema || 'system';
-        langToApply = userProfile.idioma || 'es';
-        localStorage.setItem("theme", themeToApply);
-        localStorage.setItem("language", langToApply);
-      } else {
+    if (typeof window !== 'undefined') { // Ensure localStorage is available
+      if (userProfileLoading) {
+        // While user profile is loading, prioritize localStorage for quick UI setup
         const storedTheme = localStorage.getItem("theme") as Theme | null;
-        themeToApply = storedTheme || 'system';
-        localStorage.setItem("theme", themeToApply);
+        if (storedTheme) {
+          themeApplied = storedTheme;
+        }
         const storedLang = localStorage.getItem("language") as 'es' | 'en' | null;
-        langToApply = storedLang || 'es';
-        localStorage.setItem("language", langToApply);
+        if (storedLang) {
+          langApplied = storedLang;
+        }
+      } else {
+        // User profile (from Firestore or defaults) is loaded
+        if (userProfile) {
+          themeApplied = userProfile.tema || 'system';
+          langApplied = userProfile.idioma || 'es';
+          localStorage.setItem("theme", themeApplied); // Sync localStorage with Firestore
+          localStorage.setItem("language", langApplied);
+        } else {
+          // Fallback to localStorage if profile still not available (should be rare with simulated user)
+          const storedTheme = localStorage.getItem("theme") as Theme | null;
+          themeApplied = storedTheme || 'system';
+          localStorage.setItem("theme", themeApplied);
+          const storedLang = localStorage.getItem("language") as 'es' | 'en' | null;
+          langApplied = storedLang || 'es';
+          localStorage.setItem("language", langApplied);
+        }
       }
+      applyTheme(themeApplied);
+      setCurrentLanguage(langApplied);
     }
-    
-    applyTheme(themeToApply);
-    setCurrentLanguage(langToApply);
-  
   }, [userProfile, userProfileLoading, applyTheme]);
 
 
   React.useEffect(() => {
-    setIsMobileSheetOpen(false);
+    if (isMobileSheetOpen) {
+      setIsMobileSheetOpen(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -348,7 +357,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const handleLanguageChange = async (lang: 'es' | 'en') => {
     setCurrentLanguage(lang);
-    localStorage.setItem("language", lang); 
+    if (typeof window !== 'undefined') localStorage.setItem("language", lang); 
     const langName = lang === 'es' ? 'Español' : 'English';
     toast({
       title: T.languageChanged,
@@ -358,11 +367,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     if (user && user.uid) { 
       try {
         const userDocRef = doc(db, "users", user.uid);
-        const currentProfileData = userProfile ? { ...userProfile } : { uid: user.uid, nombre: user.displayName || "", correo: user.email || "", tema:"system", idioma:"es" };
+        // Optimistically update local state, Firestore will catch up
+        const updatedProfile = { ...(userProfile || { uid: user.uid, nombre: user.displayName || "", correo: user.email || "" }), idioma: lang };
         
-        await setDoc(userDocRef, { ...currentProfileData, idioma: lang }, { merge: true });
-        
-        setUserProfileState({...currentProfileData, idioma: lang} as UserProfile);
+        // Ensure all required fields are present before setting
+        const profileToSave: any = {
+            nombre: updatedProfile.nombre || user.displayName || "Usuario de Prueba",
+            correo: updatedProfile.correo || user.email || "test@example.com",
+            idioma: lang,
+            tema: updatedProfile.tema || "system",
+            fotoPerfil: updatedProfile.fotoPerfil || user.photoURL || `https://placehold.co/40x40.png?text=ET`,
+            uid: user.uid,
+        };
+        if(updatedProfile.isAdmin !== undefined) profileToSave.isAdmin = updatedProfile.isAdmin;
+
+
+        await setDoc(userDocRef, profileToSave, { merge: true });
+        setUserProfileState(profileToSave as UserProfile);
 
       } catch (error) {
         console.error("Error updating language in Firestore:", error);
@@ -375,8 +396,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     try {
       await firebaseSignOut(auth); 
       toast({ title: "Sesión Cerrada", description: "Has cerrado tu sesión exitosamente." });
-      // No user means page will show login state or redirect if protected
-      // router.push('/login'); // Assuming a login page exists
+      // With simulated auth, user state in useFirebaseAuth will reset.
+      // If real auth, router.push('/login') might be needed.
     } catch (error) {
       console.error("Error signing out: ", error);
       toast({ title: "Error", description: "No se pudo cerrar la sesión.", variant: "destructive" });
@@ -385,7 +406,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   
   const getNavItemTitle = React.useCallback((itemKey: string, langT: AppLayoutTextsType): string => {
     const itemDetail = userNavItemsListDetails.find(detail => detail.key === itemKey);
-    if (!itemDetail) return itemKey; // Fallback to key if not found
+    if (!itemDetail) return itemKey; 
 
     switch (itemKey) {
       case 'settings': return langT.navSettings;
@@ -393,34 +414,34 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       case 'myForums': return langT.navMyForums;
       case 'favorites': return langT.navFavorites;
       case 'logout': return langT.navLogout;
-      default: return itemDetail.defaultTitle; // Use default from definition
+      default: return itemDetail.defaultTitle; 
     }
   }, []);
 
-  const userNavItems: UserNavItem[] = React.useMemo(() => 
+  const userNavItemsList = React.useMemo(() => 
     userNavItemsListDetails.map(detail => ({
       title: getNavItemTitle(detail.key, T),
       href: detail.href,
       icon: detail.icon,
       action: detail.actionKey === 'logoutAction' ? handleLogout : undefined,
-      disabled: (detail.key === 'myForums' || detail.key === 'favorites' || detail.key === 'settings' || detail.key === 'aiAssistant' || detail.actionKey === 'logoutAction') && !user,
+      disabled: false, // User is always "logged in" with simulated auth
     })),
-  [T, user, handleLogout, getNavItemTitle]);
+  [T, handleLogout, getNavItemTitle]);
 
 
-  if (userProfileLoading && !userProfile && typeof window !== 'undefined' && !localStorage.getItem('theme')) { 
+  if (userProfileLoading && typeof window !== 'undefined' && !localStorage.getItem('theme')) { 
     return (
       <div className="flex min-h-screen w-full animate-pulse">
-        <div className="hidden md:flex md:w-60 flex-col border-r bg-card p-4 space-y-3">
-            <Skeleton className="h-8 w-3/4" />
-            {[...Array(5)].map((_,i) => <Skeleton key={i} className="h-9 w-full" />)}
+        <div className="hidden md:flex md:w-60 flex-col border-r bg-sidebar p-4 space-y-3">
+            <Skeleton className="h-8 w-3/4 bg-muted" />
+            {[...Array(5)].map((_,i) => <Skeleton key={i} className="h-9 w-full bg-muted" />)}
             <div className="mt-auto space-y-2">
-                <Skeleton className="h-9 w-full" />
-                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full bg-muted" />
+                <Skeleton className="h-9 w-full bg-muted" />
             </div>
         </div>
         <div className="flex flex-col flex-1">
-          <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/50 px-4 sm:px-6 shadow-sm backdrop-blur-sm">
+          <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6 shadow-sm">
             <div className="h-8 w-8 bg-muted rounded-md md:hidden"></div> 
             <div className="h-6 w-32 bg-muted rounded-md"></div> 
             <div className="hidden md:flex flex-1 justify-center gap-2">
@@ -433,7 +454,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="h-9 w-9 bg-muted rounded-full"></div> 
             </div>
           </header>
-          <main className="flex-1 p-4 md:p-6 lg:p-8 bg-muted/40">
+          <main className="flex-1 p-4 md:p-6 lg:p-8 bg-background">
              <Skeleton className="h-10 w-1/2 bg-muted rounded-lg mb-4" />
              <Skeleton className="h-64 w-full bg-muted rounded-lg" /> 
           </main>
@@ -442,7 +463,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const sidebarWidthClass = "md:ml-60"; // Adjust if sidebar width changes; md:ml-16 for collapsed
+  const sidebarWidthClass = "md:ml-60"; // Default for expanded sidebar
+  // const sidebarWidthClass = isSidebarCollapsed ? "md:ml-16" : "md:ml-60"; // If collapse state was managed here
 
   return (
     <TooltipProvider>
@@ -453,13 +475,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             pathname={pathname} 
             user={user} 
             handleLogout={handleLogout} 
-            userNavItems={userNavItems}
+            userNavItems={userNavItemsList}
             userProfileLoading={userProfileLoading}
         />
         
-        <div className={cn("flex flex-col flex-1", sidebarWidthClass )}> {/* Dynamic margin based on sidebar state */}
-          <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6 shadow-sm">
-            {/* Hamburger for Mobile - to open combined sheet */}
+        <div className={cn("flex flex-col flex-1 transition-all duration-300 ease-in-out", user ? sidebarWidthClass : "md:ml-0" )}>
+          <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6 shadow-sm">
             <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="md:hidden shrink-0">
@@ -474,7 +495,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         <rect width="256" height="256" fill="none"></rect>
                         <path d="M41.4,104.6C22.8,123.1,16,144,16,160a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,104.6Z" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
                         <path d="M113.4,104.6c18.6-18.5,25.4-39.4,25.4-55.4a64,64,0,0,0-128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,0,50.2,22.1A71.8,71.8,0,0,0,113.4,104.6Z" transform="translate(256 48) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
-                        <path d="M41.4,151.4c-18.6,18.5-25.4,39.4-25.4,55.4a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,151.4Z" transform="translate(48 256) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
+                        <path d="M41.4,151.4c-18.6,18.5-25.4,39.4-25.4-55.4a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,151.4Z" transform="translate(48 256) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
                         <path d="M113.4,151.4c-18.6-18.5-25.4-39.4-25.4-55.4a64,64,0,0,1,128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,1-50.2,22.1A71.8,71.8,0,0,1,113.4,151.4Z" transform="translate(256 208) rotate(180)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
                     </svg>
                     <span className="font-bold text-lg text-foreground">DarkAISchool</span>
@@ -485,7 +506,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
                 <ScrollArea className="flex-1">
                   <nav className="grid gap-2 p-4">
-                    {/* Main Navigation in Mobile Sheet */}
                     <h3 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{T.mainNavigation}</h3>
                     {mainNavItemsData.map((item) => (
                       <SheetClose asChild key={item.key}>
@@ -497,14 +517,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                           )}
                         >
                           <item.icon className="h-4 w-4" />
-                          {item.title} {/* Direct title from navItemsData */}
+                          {item.title}
                         </Link>
                       </SheetClose>
                     ))}
                     <Separator className="my-3"/>
-                    {/* User Navigation in Mobile Sheet */}
                      <h3 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{T.userNavigation}</h3>
-                    {userNavItems.map((item) => ( item.href ?
+                    {userNavItemsList.map((item) => ( item.href ?
                       (<SheetClose asChild key={item.title}>
                         <Link
                           href={item.href}
@@ -564,13 +583,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </SheetContent>
             </Sheet>
             
-            {/* Desktop Top Navigation (Main Nav) */}
             <div className="hidden md:flex flex-1 justify-center">
               <DesktopNav currentLanguage={currentLanguage} T={T} pathname={pathname} />
             </div>
 
-            {/* Right side of Header */}
-            <div className={cn("flex items-center gap-2 sm:gap-3", {"ml-auto": true /* Ensures it's on the right when no desktop nav */ })}>
+            <div className={cn("flex items-center gap-2 sm:gap-3 ml-auto")}>
               <form className="hidden sm:block" onSubmit={handleSearchSubmit}> 
                 <div className="relative">
                   <Input
@@ -591,15 +608,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <Globe className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="bg-popover text-popover-foreground">
                   <DropdownMenuItem onClick={() => handleLanguageChange('es')}>Español</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleLanguageChange('en')}>English</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* User Avatar and Dropdown for Desktop - Part of Top Header Now */}
-               {userProfileLoading && !user ? (
-                 <Skeleton className="h-9 w-9 rounded-full" />
+               {userProfileLoading && !user ? ( // Show skeleton only if truly loading and no user yet
+                 <Skeleton className="h-9 w-9 rounded-full bg-muted" />
               ) : user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -610,7 +626,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuContent className="w-56 bg-popover text-popover-foreground" align="end" forceMount>
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex flex-col space-y-1">
                         <p className="text-sm font-medium leading-none text-foreground">{user.displayName || T.loadingUser}</p>
@@ -619,7 +635,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuGroup>
-                      {userNavItems.filter(item => item.href).map(item => (
+                      {userNavItemsList.filter(item => item.href).map(item => (
                         <DropdownMenuItem key={item.title} asChild disabled={item.disabled}>
                           <Link href={item.href!} className={cn("flex items-center", item.disabled && "opacity-50 cursor-not-allowed")}>
                             <item.icon className="mr-2 h-4 w-4" />
@@ -629,14 +645,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       ))}
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />
-                    {userNavItems.find(item => item.action) && (
+                    {userNavItemsList.find(item => item.action) && (
                        <DropdownMenuItem 
-                         onClick={!userNavItems.find(item => item.action)?.disabled ? userNavItems.find(item => item.action)?.action : undefined} 
-                         className={cn("cursor-pointer flex items-center", userNavItems.find(item => item.action)?.disabled && "opacity-50 cursor-not-allowed")}
-                         disabled={userNavItems.find(item => item.action)?.disabled}
+                         onClick={!userNavItemsList.find(item => item.action)?.disabled ? userNavItemsList.find(item => item.action)?.action : undefined} 
+                         className={cn("cursor-pointer flex items-center", userNavItemsList.find(item => item.action)?.disabled && "opacity-50 cursor-not-allowed")}
+                         disabled={userNavItemsList.find(item => item.action)?.disabled}
                         >
                          <LogOut className="mr-2 h-4 w-4" />
-                         <span>{userNavItems.find(item => item.action)!.title}</span>
+                         <span>{userNavItemsList.find(item => item.action)!.title}</span>
                        </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
@@ -644,12 +660,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               ) : (
                  <Tooltip>
                     <TooltipTrigger asChild>
-                        {/* This button's action needs to be defined, e.g., router.push('/login') if a login page exists */}
-                        <Button variant="ghost" size="icon" onClick={() => router.push('/home')} aria-label={T.loginSimulated}>
+                        <Button variant="ghost" size="icon" onClick={() => router.push('/home')} aria-label={T.loginSimulated} className="text-foreground hover:text-accent-foreground hover:bg-accent">
                            <UserIcon className="h-5 w-5" />
                         </Button>
                     </TooltipTrigger>
-                    <TooltipContent>
+                    <TooltipContent className="bg-popover text-popover-foreground">
                         <p>{T.loginSimulated}</p>
                     </TooltipContent>
                  </Tooltip>
@@ -657,11 +672,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </header>
           
-          <main className="flex-1 p-4 md:p-6 lg:p-8 bg-muted/40 overflow-auto">
-            {/* This is where the page content (children) will be rendered */}
+          <main className="flex-1 p-4 md:p-6 lg:p-8 bg-background overflow-auto">
             {children}
           </main>
-          {/* StudyAssistantDialog has been removed. The new AI assistant will be a page. */}
         </div>
       </div>
     </TooltipProvider>
