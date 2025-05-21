@@ -19,6 +19,7 @@ import Image from 'next/image';
 import { askStudyAssistant, type StudyAssistantInput, type StudyAssistantOutput } from '@/ai/flows/study-assistant-flow';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
+import { Avatar } from '@/components/ui/avatar'; // Added Avatar import
 
 interface Message {
   id: string;
@@ -52,7 +53,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
     if (isOpen && messages.length === 0) {
       setMessages([assistantWelcomeMessage]);
     }
-  }, [isOpen, currentLanguage]);
+  }, [isOpen, currentLanguage, messages.length, assistantWelcomeMessage]); // Added messages.length and assistantWelcomeMessage to dependencies
 
 
   useEffect(() => {
