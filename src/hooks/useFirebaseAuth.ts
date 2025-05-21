@@ -2,95 +2,104 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase'; // Assuming db is exported from firebase.ts
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import type { UserProfile } from '@/types/firestore';
 
-// Simulamos una interfaz de usuario más completa por si algún componente aún la espera
+// Definimos una interfaz 'User' simplificada para el usuario simulado
 export interface User {
   uid: string;
   displayName: string | null;
   email: string | null;
   photoURL: string | null;
-  // Firebase User object often has more, but these are common
 }
 
 export interface AuthState {
   user: User | null;
-  loading: boolean;
+  loading: boolean; // Aunque lo pongamos a false, lo mantenemos por si se usa en otros sitios
   userId: string | null;
-  userProfile: UserProfile | null; // Added userProfile
-  setUserProfileState: (profile: UserProfile | null) => void; // For local updates
+  userProfile: UserProfile | null;
+  setUserProfileState: (profile: UserProfile | null) => void;
 }
 
 const SIMULATED_USER_ID = "uid_test";
-const SIMULATED_USER_PHOTO_PLACEHOLDER = `https://placehold.co/40x40.png?text=${SIMULATED_USER_ID.substring(0,2).toUpperCase()}`;
+const SIMULATED_USER_DISPLAY_NAME = "Estudiante de Pruebas";
+const SIMULATED_USER_EMAIL = "uid_test@example.com";
+const SIMULATED_USER_PHOTO_FALLBACK = `https://placehold.co/40x40.png?text=ET`;
+
+const initialSimulatedUser: User = {
+  uid: SIMULATED_USER_ID,
+  displayName: SIMULATED_USER_DISPLAY_NAME,
+  email: SIMULATED_USER_EMAIL,
+  photoURL: SIMULATED_USER_PHOTO_FALLBACK,
+};
+
+const initialSimulatedUserProfile: UserProfile = {
+  uid: SIMULATED_USER_ID,
+  nombre: SIMULATED_USER_DISPLAY_NAME,
+  correo: SIMULATED_USER_EMAIL,
+  fotoPerfil: SIMULATED_USER_PHOTO_FALLBACK,
+  tema: "system",
+  idioma: "es",
+  isAdmin: false, 
+};
 
 export function useFirebaseAuth(): AuthState {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-
-  const simulatedUser: User = {
-    uid: SIMULATED_USER_ID,
-    displayName: "Estudiante de Pruebas",
-    email: "uid_test@example.com",
-    photoURL: SIMULATED_USER_PHOTO_PLACEHOLDER,
-  };
+  const [user, setUser] = useState<User | null>(initialSimulatedUser);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(initialSimulatedUserProfile);
+  const [loading, setLoading] = useState(false); // Iniciar como false
 
   const setUserProfileState = useCallback((profile: UserProfile | null) => {
     setUserProfile(profile);
-  }, []);
+    if (profile && user) {
+      setUser(prevUser => ({
+        ...prevUser!,
+        displayName: profile.nombre || prevUser!.displayName,
+        photoURL: profile.fotoPerfil || prevUser!.photoURL,
+      }));
+    }
+  }, [user]);
 
   useEffect(() => {
-    // Simulate authentication
-    setUser(simulatedUser);
-    setLoading(false);
-
-    // Fetch or create user profile from Firestore
+    // Aunque ya tenemos valores iniciales, escuchamos a Firestore para cualquier actualización
+    // o para crear el perfil si es la primera vez.
     const profileDocRef = doc(db, "users", SIMULATED_USER_ID);
     
     const unsubscribe = onSnapshot(profileDocRef, async (docSnap) => {
       if (docSnap.exists()) {
         const profileData = docSnap.data() as UserProfile;
-        setUserProfile(profileData);
-        // Update simulated user details if profile has them
+        setUserProfile(profileData); // Actualiza el perfil local con datos de Firestore
+        // Actualiza los detalles del objeto 'user' basado en el perfil de Firestore
         setUser(prevUser => ({
           ...prevUser!,
-          displayName: profileData.nombre || prevUser!.displayName,
-          photoURL: profileData.fotoPerfil || prevUser!.photoURL,
+          displayName: profileData.nombre || initialSimulatedUser.displayName,
+          photoURL: profileData.fotoPerfil || initialSimulatedUser.photoURL,
         }));
       } else {
-        // Profile doesn't exist, create a default one
-        const defaultProfile: UserProfile = {
-          uid: SIMULATED_USER_ID,
-          nombre: simulatedUser.displayName || "Usuario de Prueba",
-          correo: simulatedUser.email || "test@example.com",
-          fotoPerfil: simulatedUser.photoURL || SIMULATED_USER_PHOTO_PLACEHOLDER,
-          tema: "system", // Default theme
-          idioma: "es", // Default language
-          isAdmin: false, // Default admin status
-        };
+        // El perfil no existe en Firestore, creamos uno con los valores iniciales/por defecto
+        // Esto asegura que el perfil se cree en Firestore si aún no existe
         try {
-          await setDoc(profileDocRef, defaultProfile);
-          setUserProfile(defaultProfile);
-           setUser(prevUser => ({
+          await setDoc(profileDocRef, initialSimulatedUserProfile);
+          setUserProfile(initialSimulatedUserProfile); // Establece el perfil local
+           setUser(prevUser => ({ // Asegura que el user object también refleje esto
             ...prevUser!,
-            displayName: defaultProfile.nombre || prevUser!.displayName,
-            photoURL: defaultProfile.fotoPerfil || prevUser!.photoURL,
+            displayName: initialSimulatedUserProfile.nombre,
+            photoURL: initialSimulatedUserProfile.fotoPerfil,
           }));
         } catch (error) {
-          console.error("Error creating default user profile:", error);
+          console.error("Error creating default user profile in Firestore:", error);
         }
       }
+      // setLoading(false); // Ya es false, pero lo dejamos por si se cambia la lógica inicial
     }, (error) => {
-      console.error("Error fetching user profile:", error);
-      // Handle error, maybe set a default local profile or indicate an issue
+      console.error("Error fetching user profile from Firestore:", error);
+      // Mantenemos el perfil local simulado y loading como false
+      // setLoading(false);
     });
 
-    return () => unsubscribe(); // Cleanup snapshot listener
+    return () => unsubscribe(); // Limpiar el listener al desmontar
 
-  }, []);
+  }, []); // Ejecutar solo una vez al montar para configurar el listener
 
   return { 
     user, 
