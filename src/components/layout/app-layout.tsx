@@ -16,11 +16,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  DropdownMenuGroup, // Added for user dropdown
+  DropdownMenuGroup,
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet"; 
-import { Separator } from "@/components/ui/separator"; // Added Separator import
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggleButton } from '@/components/ui/theme-toggle-button';
 import { cn } from "@/lib/utils";
@@ -34,9 +34,13 @@ import {
 } from "@/components/ui/tooltip";
 import { doc, updateDoc } from 'firebase/firestore'; 
 import { db } from '@/lib/firebase'; 
+import type { UserNavItem as UserNavType } from './user-nav-items'; // Renamed import to avoid conflict
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { useRouter } from 'next/navigation'; // Import useRouter
 
+type Theme = "light" | "dark" | "system";
 
-// Textos para internacionalización simulada
 interface AppLayoutTextsType {
   searchPlaceholder: string;
   languageChanged: string;
@@ -45,7 +49,7 @@ interface AppLayoutTextsType {
   searchSubmitted: string;
   searchSubmittedDesc: (query: string) => string;
   mainNavigation: string;
-  userNavigation: string;
+  userNavigation: string; // For mobile sheet
   mobileMenuTitle: string;
   navPanel: string;
   navForums: string;
@@ -55,7 +59,6 @@ interface AppLayoutTextsType {
   navMyForums: string;
   navFavorites: string;
   navLogout: string;
-  loginToSeeOptions?: string;
   loggedInAs: (name: string) => string;
   loadingUser: string;
 }
@@ -80,7 +83,7 @@ const appLayoutTexts: Record<'es' | 'en', AppLayoutTextsType> = {
     navFavorites: "Favoritos",
     navLogout: "Cerrar Sesión",
     loggedInAs: (name: string) => `Sesión iniciada como ${name}`,
-    loadingUser: "Cargando información del usuario...",
+    loadingUser: "Cargando...",
   },
   en: {
     searchPlaceholder: "Search platform...",
@@ -101,18 +104,9 @@ const appLayoutTexts: Record<'es' | 'en', AppLayoutTextsType> = {
     navFavorites: "Favorites",
     navLogout: "Log Out",
     loggedInAs: (name: string) => `Logged in as ${name}`,
-    loadingUser: "Loading user information...",
+    loadingUser: "Loading...",
   }
 };
-
-// Definición de UserNavItem para el menú de usuario
-export interface UserNavItem {
-  title: string;
-  href?: string;
-  icon: React.ElementType; 
-  action?: () => void | Promise<void>;
-  disabled?: boolean;
-}
 
 
 function DesktopNav({ currentLanguage, T, pathname }: { currentLanguage: 'es' | 'en', T: AppLayoutTextsType, pathname: string}) {
@@ -151,42 +145,73 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [currentLanguage, setCurrentLanguage] = React.useState<'es' | 'en'>('es');
   const [isMobileSheetOpen, setIsMobileSheetOpen] = React.useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   
   const T = appLayoutTexts[currentLanguage];
 
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      let themeToApply: 'light' | 'dark' | 'system' = 'system';
-      let langToApply: 'es' | 'en' = 'es';
+  const applyTheme = React.useCallback((themeToApply: Theme) => {
+    if (typeof window === 'undefined') return;
+    document.documentElement.classList.remove("light", "dark");
+    if (themeToApply === "dark") {
+      document.documentElement.classList.add("dark");
+    } else if (themeToApply === "light") {
+      document.documentElement.classList.add("light");
+    } else { 
+      if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        document.documentElement.classList.add("dark");
+      }
+    }
+  }, []);
 
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+  
+    let themeToApply: Theme = 'system';
+    let langToApply: 'es' | 'en' = 'es';
+  
+    if (loading) {
+      // While Firestore data is loading, apply from localStorage to reduce FOUC
+      const storedTheme = localStorage.getItem("theme") as Theme | null;
+      if (storedTheme) applyTheme(storedTheme);
+  
+      const storedLang = localStorage.getItem("language") as 'es' | 'en' | null;
+      if (storedLang) setCurrentLanguage(storedLang);
+      // Don't return; allow the effect to continue if userProfile becomes available
+      // or if loading finishes and userProfile is still null.
+    }
+  
+    // Once loading is false, Firestore data (or lack thereof) is definitive
+    if (!loading) {
       if (userProfile) {
+        // Firestore is the source of truth
         themeToApply = userProfile.tema || 'system';
         langToApply = userProfile.idioma || 'es';
+        localStorage.setItem("theme", themeToApply); // Keep localStorage in sync
+        localStorage.setItem("language", langToApply); // Keep localStorage in sync
       } else {
-        // Fallback to localStorage if userProfile is not yet loaded or doesn't exist
-        const storedTheme = localStorage.getItem("theme") as 'light' | 'dark' | 'system' | null;
-        if (storedTheme) themeToApply = storedTheme;
-        
-        const storedLang = localStorage.getItem("language") as 'es' | 'en' | null;
-        if (storedLang) langToApply = storedLang;
-      }
-      
-      // Apply theme
-      document.documentElement.classList.remove("light", "dark");
-      if (themeToApply === "dark") {
-        document.documentElement.classList.add("dark");
-      } else if (themeToApply === "light") {
-        document.documentElement.classList.add("light");
-      } else { // system
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          document.documentElement.classList.add('dark');
+        // No profile from Firestore (e.g., error, or new user before profile creation is fully synced)
+        // Fallback to localStorage as the best guess, or set default if nothing in LS
+        const storedTheme = localStorage.getItem("theme") as Theme | null;
+        if (storedTheme) {
+          themeToApply = storedTheme;
         } else {
-          document.documentElement.classList.remove('dark');
+          localStorage.setItem("theme", themeToApply); // Store default 'system'
+        }
+  
+        const storedLang = localStorage.getItem("language") as 'es' | 'en' | null;
+        if (storedLang) {
+          langToApply = storedLang;
+        } else {
+          localStorage.setItem("language", langToApply); // Store default 'es'
         }
       }
-      setCurrentLanguage(langToApply);
     }
-  }, [userProfile, loading]); // Rerun when userProfile or loading state changes
+    
+    applyTheme(themeToApply);
+    setCurrentLanguage(langToApply);
+  
+  }, [userProfile, loading, applyTheme]);
+
 
   React.useEffect(() => {
     setIsMobileSheetOpen(false);
@@ -213,43 +238,51 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       description: T.languageChangedDesc(langName),
     });
 
-    if (user && user.uid && userProfile) { // Ensure userProfile is available
+    if (user && user.uid && userProfile) {
       try {
         const userDocRef = doc(db, "users", user.uid);
         await updateDoc(userDocRef, { idioma: lang });
-        // Update local userProfile state optimistically or after confirmation
         setUserProfileState({...userProfile, idioma: lang});
       } catch (error) {
         console.error("Error updating language in Firestore:", error);
         toast({ title: "Error", description: T.languageSaveError, variant: "destructive" });
       }
+    } else if (user && user.uid) { // User exists, but profile might not be loaded yet or doesn't exist
+        try {
+            const userDocRef = doc(db, "users", user.uid);
+            await updateDoc(userDocRef, { idioma: lang });
+            // If userProfile becomes available later, it will reflect this change
+        } catch (error) {
+            console.error("Error updating language in Firestore (no profile):", error);
+            toast({ title: "Error", description: T.languageSaveError, variant: "destructive" });
+        }
     }
   };
   
-  const userNavItemsList: UserNavItem[] = [
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      toast({ title: "Sesión Cerrada", description: "Has cerrado tu sesión exitosamente." });
+      router.push('/home'); // Redirect to home or a login page if you had one
+    } catch (error) {
+      console.error("Error signing out: ", error);
+      toast({ title: "Error", description: "No se pudo cerrar la sesión.", variant: "destructive" });
+    }
+  };
+  
+  const userNavItemsList: UserNavType[] = [
     { title: T.navSettings, href: '/settings', icon: Settings },
-    { title: T.navMyForums, href: '/my-forums', icon: LayoutList, disabled: true }, // Disabled as per previous setup
-    { title: T.navFavorites, href: '/favorites', icon: Star, disabled: true }, // Disabled as per previous setup
+    { title: T.navMyForums, href: '/my-forums', icon: LayoutList, disabled: false }, 
+    { title: T.navFavorites, href: '/favorites', icon: Star, disabled: false }, 
     { 
       title: T.navLogout, 
       icon: LogOut, 
-      action: async () => {
-        toast({ title: "Cierre de Sesión (Simulado)", description: "Has cerrado tu sesión."});
-        // With real Firebase Auth:
-        // try {
-        //   await signOut(auth); // auth from firebase.ts
-        //   router.push('/login'); // or wherever you want to redirect
-        //   toast({ title: "Sesión Cerrada", description: "Has cerrado tu sesión exitosamente." });
-        // } catch (error) {
-        //   console.error("Error signing out: ", error);
-        //   toast({ title: "Error", description: "No se pudo cerrar la sesión.", variant: "destructive" });
-        // }
-      } 
+      action: handleLogout
     },
   ];
 
 
-  const getNavItemTitle = (item: NavItem | UserNavItem, langT: AppLayoutTextsType) => {
+  const getNavItemTitle = (item: NavItem | UserNavType, langT: AppLayoutTextsType) => {
     if ('href' in item && item.href) {
       switch (item.href) {
         case '/home': return langT.navPanel;
@@ -262,7 +295,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         default: return item.title;
       }
     }
-    if (item.title === appLayoutTexts.es.navLogout || item.title === appLayoutTexts.en.navLogout) return langT.navLogout;
+    // For items without href (like Logout), check title directly
+    const logoutTitleEs = appLayoutTexts.es.navLogout;
+    const logoutTitleEn = appLayoutTexts.en.navLogout;
+    if (item.title === logoutTitleEs || item.title === logoutTitleEn) {
+        return langT.navLogout;
+    }
 
     return item.title;
   };
@@ -298,8 +336,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <TooltipProvider>
       <div className="flex min-h-screen w-full">
-        {/* UserDesktopSidebar removido */}
-        <div className="flex flex-col flex-1"> {/* md:ml-60 removido */}
+        <div className="flex flex-col flex-1">
           <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6 shadow-sm">
             <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
               <SheetTrigger asChild>
@@ -340,7 +377,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         </Link>
                       </SheetClose>
                     ))}
-                    {/* User navigation in mobile sheet */}
                     <Separator className="my-3"/>
                      <h3 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{T.userNavigation}</h3>
                     {userNavItemsList.map((item) => ( item.href ?
@@ -352,7 +388,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             item.disabled && "opacity-50 cursor-not-allowed",
                             pathname === item.href && !item.disabled && "bg-accent text-primary font-medium"
                           )}
-                          onClick={(e) => item.disabled && e.preventDefault()}
+                          onClick={(e) => {
+                            if (item.disabled) e.preventDefault();
+                            // Close sheet on nav even if disabled, action handles actual prevention
+                          }}
                         >
                           <item.icon className="h-4 w-4" />
                           {getNavItemTitle(item, T)}
@@ -366,8 +405,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                                 item.disabled && "opacity-50 cursor-not-allowed"
                             )}
                             onClick={(e) => {
-                                if(item.disabled) e.preventDefault();
-                                else if (item.action) item.action();
+                                if(item.disabled) {
+                                  e.preventDefault();
+                                } else if (item.action) {
+                                  item.action();
+                                }
                             }}
                             disabled={item.disabled}
                           >
@@ -471,7 +513,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                          disabled={userNavItemsList.find(item => item.action)?.disabled}
                         >
                          <LogOut className="mr-2 h-4 w-4" />
-                         <span>{T.navLogout}</span>
+                         <span>{getNavItemTitle(userNavItemsList.find(item => item.action)!, T)}</span>
                        </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
@@ -480,7 +522,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </header>
           
-          <main className="flex-1 p-4 md:p-6 lg:p-8 bg-muted/40 overflow-auto"> {/* Changed background to muted/40 */}
+          <main className="flex-1 p-4 md:p-6 lg:p-8 bg-muted/40 overflow-auto">
             {children}
           </main>
         </div>
