@@ -71,7 +71,9 @@ const internalStudyAssistantFlow = ai.defineFlow(
   },
   async (input: StudyAssistantInput): Promise<StudyAssistantOutput> => {
     const { query, language } = input;
-    let mainTextResponse = "No pude procesar tu solicitud en este momento. Por favor, inténtalo de nuevo más tarde.";
+    let mainTextResponse = language === 'es' 
+        ? "No pude procesar tu solicitud en este momento. Por favor, inténtalo de nuevo más tarde."
+        : "I couldn't process your request at this time. Please try again later.";
     let imageQueryFromLLM: string | undefined = undefined;
     let followUps: string[] | undefined = undefined;
     let imageUrl: string | undefined = undefined;
@@ -86,15 +88,21 @@ const internalStudyAssistantFlow = ai.defineFlow(
         followUps = llmResponse.output.suggestedFollowUps;
       } else {
         console.error("AI Study Assistant: LLM did not return a valid output structure.");
+        // Fallback mainTextResponse is already set
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Study Assistant: Error calling main LLM prompt:", error);
-      // mainTextResponse is already set to a fallback
+      if (error.message && (error.message.includes('FAILED_PRECONDITION') || error.message.includes('API key'))) {
+        mainTextResponse = language === 'es'
+            ? "Error de configuración: Parece que la clave API de Google AI no está configurada correctamente o no es válida. Por favor, verifica la variable de entorno GOOGLE_API_KEY."
+            : "Configuration Error: It seems the Google AI API key is not configured correctly or is invalid. Please check the GOOGLE_API_KEY environment variable.";
+      }
+      // Otherwise, the generic fallback message is already set
     }
     
 
-    // 2. If an image generation query was provided, generate the image
-    if (imageQueryFromLLM && imageQueryFromLLM.trim() !== "") {
+    // 2. If an image generation query was provided, and no critical error occurred above, generate the image
+    if (imageQueryFromLLM && imageQueryFromLLM.trim() !== "" && !mainTextResponse.startsWith("Error de configuración") && !mainTextResponse.startsWith("Configuration Error")) {
       try {
         console.log(`AI Study Assistant: Attempting to generate image with prompt: "${imageQueryFromLLM}"`);
         const { media } = await ai.generate({
@@ -130,3 +138,4 @@ const internalStudyAssistantFlow = ai.defineFlow(
 export async function askStudyAssistant(input: StudyAssistantInput): Promise<StudyAssistantOutput> {
   return internalStudyAssistantFlow(input);
 }
+
