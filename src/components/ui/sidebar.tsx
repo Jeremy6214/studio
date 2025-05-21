@@ -1,5 +1,9 @@
 
 "use client"
+// This component is currently NOT USED by app-layout.tsx for the main user navigation sidebar.
+// AppLayout now has its own UserDesktopSidebar implementation.
+// This file is kept in case it's needed for other sidebar purposes or if the layout strategy changes again.
+// If it's definitively not needed, it can be removed.
 
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
@@ -22,19 +26,19 @@ import {
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "16rem" // Desktop sidebar width if it were used
-const SIDEBAR_WIDTH_MOBILE = "18rem" // Mobile sheet width
-const SIDEBAR_WIDTH_ICON = "3rem" // Desktop collapsed icon sidebar width if used
+const SIDEBAR_WIDTH = "16rem" 
+const SIDEBAR_WIDTH_MOBILE = "18rem" 
+const SIDEBAR_WIDTH_ICON = "3rem" 
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type SidebarContext = {
-  state: "expanded" | "collapsed" // Kept for potential future use or if some components rely on it. For top menu, mostly 'expanded'.
-  open: boolean // Desktop sidebar open state - less relevant now for main layout
+  state: "expanded" | "collapsed" 
+  open: boolean 
   setOpen: (open: boolean) => void
-  openMobile: boolean // Mobile sheet open state
+  openMobile: boolean 
   setOpenMobile: (open: boolean) => void
   isMobile: boolean
-  toggleSidebar: () => void // Now primarily toggles mobile sheet
+  toggleSidebar: () => void 
 }
 
 const SidebarContext = React.createContext<SidebarContext | null>(null)
@@ -51,20 +55,20 @@ function useSidebar() {
 const SidebarProvider = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
-    defaultOpen?: boolean // For desktop sidebar if it were used
+    defaultOpen?: boolean 
     open?: boolean
     onOpenChange?: (open: boolean) => void
-    defaultMobileOpen?: boolean // Added for controlling mobile sheet initial state
+    defaultMobileOpen?: boolean 
     mobileOpen?: boolean
     onMobileOpenChange?: (open: boolean) => void
   }
 >(
   (
     {
-      defaultOpen = true, // Default for desktop sidebar (less relevant now)
+      defaultOpen = true, 
       open: openProp,
       onOpenChange: setOpenProp,
-      defaultMobileOpen = false, // Default for mobile sheet
+      defaultMobileOpen = false, 
       mobileOpen: mobileOpenProp,
       onMobileOpenChange: setMobileOpenProp,
       className,
@@ -74,15 +78,15 @@ const SidebarProvider = React.forwardRef<
     },
     ref
   ) => {
-    const isMobileHook = useIsMobile() // Hook result
-    const [isMobile, setIsMobile] = React.useState(false); // Local state
+    const isMobileHook = useIsMobile() 
+    const [isMobile, setIsMobile] = React.useState(false); 
 
     React.useEffect(() => {
       setIsMobile(isMobileHook);
     }, [isMobileHook]);
 
 
-    // Desktop sidebar state (kept for compatibility, less used in top-menu layout)
+    
     const [_open, _setOpen] = React.useState(defaultOpen)
     const open = openProp ?? _open
     const setOpen = React.useCallback(
@@ -98,7 +102,7 @@ const SidebarProvider = React.forwardRef<
       [setOpenProp, open]
     )
 
-    // Mobile sheet state
+    
     const [_openMobile, _setOpenMobile] = React.useState(defaultMobileOpen);
     const openMobile = mobileOpenProp ?? _openMobile;
     const setOpenMobile = React.useCallback(
@@ -118,7 +122,7 @@ const SidebarProvider = React.forwardRef<
       if (isMobile) {
         setOpenMobile((current) => !current);
       } else {
-        // setOpen((current) => !current); // Desktop sidebar toggle, less relevant
+        setOpen((current) => !current); 
       }
     }, [isMobile, setOpenMobile, setOpen])
 
@@ -130,7 +134,7 @@ const SidebarProvider = React.forwardRef<
           (event.metaKey || event.ctrlKey)
         ) {
           event.preventDefault()
-          toggleSidebar() // Will toggle mobile sheet if on mobile
+          toggleSidebar() 
         }
       }
 
@@ -138,7 +142,7 @@ const SidebarProvider = React.forwardRef<
       return () => window.removeEventListener("keydown", handleKeyDown)
     }, [toggleSidebar])
 
-    // 'state' for desktop sidebar (less relevant for top-menu layout)
+    
     const state = open ? "expanded" : "collapsed"
 
     const contextValue = React.useMemo<SidebarContext>(
@@ -160,15 +164,14 @@ const SidebarProvider = React.forwardRef<
           <div
             style={
               {
-                // CSS variables can be kept if any component still uses them,
-                // but --sidebar-width might be less relevant for main layout.
+                
                 "--sidebar-width": SIDEBAR_WIDTH,
                 "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
                 ...style,
               } as React.CSSProperties
             }
             className={cn(
-              "group/sidebar-wrapper flex min-h-svh w-full", // Removed `has-[[data-variant=inset]]:bg-sidebar` as inset variant is not used for top menu
+              "group/sidebar-wrapper flex min-h-svh w-full", 
               className
             )}
             ref={ref}
@@ -183,41 +186,40 @@ const SidebarProvider = React.forwardRef<
 )
 SidebarProvider.displayName = "SidebarProvider"
 
-// The Sidebar component itself is now primarily for the mobile Sheet content or if a desktop sidebar is explicitly re-added.
-// For a top-menu layout, it might not be directly used in app-layout.tsx for desktop.
+
 const Sidebar = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
     side?: "left" | "right"
-    variant?: "sidebar" | "floating" | "inset" // These variants are for desktop sidebar
-    collapsible?: "offcanvas" | "icon" | "none" // These are for desktop sidebar
+    variant?: "sidebar" | "floating" | "inset" 
+    collapsible?: "offcanvas" | "icon" | "none" 
   }
 >(
   (
     {
       side = "left",
-      // variant = "sidebar", // Default variant for desktop sidebar
-      // collapsible = "offcanvas", // Default collapsible for desktop sidebar
+      
+      
       className,
       children,
       ...props
     },
     ref
   ) => {
-    const { isMobile, openMobile, setOpenMobile, state } = useSidebar() // state is for desktop
+    const { isMobile, openMobile, setOpenMobile, state } = useSidebar() 
 
-    // Mobile rendering (Sheet) - This part is still relevant if app-layout.tsx uses <Sidebar> for mobile content.
-    // However, in the new app-layout.tsx, MobileNavSheet is a direct Sheet component.
-    // This <Sidebar> component might be simplified or removed if not used.
+    
+    
+    
     if (isMobile) {
       return (
         <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
           <SheetContent
-            data-sidebar="sidebar" // Keep data attribute for potential styling
+            data-sidebar="sidebar" 
             data-mobile="true"
             className={cn(
               "w-[var(--sidebar-width-mobile,18rem)] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden",
-              className // Allow overriding className
+              className 
             )}
             style={
               {
@@ -232,37 +234,33 @@ const Sidebar = React.forwardRef<
       )
     }
 
-    // Desktop rendering - This part is largely obsolete for a top-menu layout.
-    // It's kept here if someone wants to reuse the <Sidebar> component explicitly for a desktop sidebar.
-    // In the app-layout.tsx for top-menu, this won't be rendered.
+    
+    
+    
+    
     return (
       <div
         ref={ref}
         className={cn(
-            "group peer hidden md:block text-sidebar-foreground", // Hidden by default for top-menu
-            // Add other desktop sidebar classes if needed for a specific use case
+            "group peer hidden md:block text-sidebar-foreground", 
+            
             className
         )}
-        data-state={state} // Desktop sidebar state
-        // data-collapsible={state === "collapsed" ? collapsible : ""}
-        // data-variant={variant}
+        data-state={state} 
+        
+        
         data-side={side}
         {...props}
       >
-        {/* Desktop sidebar structure would go here if used */}
-        {/* For example:
-        <div className="fixed ...">
-          {children}
-        </div>
-        */}
+        
+        
       </div>
     )
   }
 )
 Sidebar.displayName = "Sidebar"
 
-// SidebarTrigger is the hamburger icon, usually for mobile.
-// In the new app-layout.tsx, a similar button is used directly.
+
 const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
@@ -277,12 +275,12 @@ const SidebarTrigger = React.forwardRef<
       size="icon"
       className={cn(
         "h-7 w-7", 
-        !isMobile ? "md:hidden" : "", // Show only on mobile by default if not overridden
+        !isMobile ? "md:hidden" : "", 
         className
       )}
       onClick={(event) => {
         onClick?.(event)
-        toggleSidebar() // Toggles mobile sheet
+        toggleSidebar() 
       }}
       {...props}
     >
@@ -294,8 +292,7 @@ const SidebarTrigger = React.forwardRef<
 SidebarTrigger.displayName = "SidebarTrigger"
 
 
-// SidebarInset: This defines the main content area.
-// Its padding/margin might need adjustment if the desktop sidebar is removed.
+
 const SidebarInset = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"main">
@@ -305,8 +302,8 @@ const SidebarInset = React.forwardRef<
       ref={ref}
       className={cn(
         "relative flex min-h-svh flex-1 flex-col bg-background",
-        // Classes for inset variant are removed as we are not using a persistent desktop sidebar that content would be "inset" from.
-        // "peer-data-[variant=inset]:min-h-[calc(100svh-theme(spacing.4))] md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
+        
+        
         className
       )}
       {...props}
@@ -316,9 +313,6 @@ const SidebarInset = React.forwardRef<
 SidebarInset.displayName = "SidebarInset"
 
 
-// Other sidebar sub-components (Header, Footer, Menu, etc.) are designed for a vertical sidebar structure.
-// They might not be directly applicable to a top-menu layout without modification or being used inside the mobile sheet.
-// Keeping them for potential use within the mobile SheetContent or if specific parts are needed.
 
 const SidebarHeader = React.forwardRef<
   HTMLDivElement,
@@ -359,7 +353,7 @@ const SidebarContent = React.forwardRef<
       ref={ref}
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto", // Removed icon-specific overflow for collapsed state
+        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto", 
         className
       )}
       {...props}
@@ -437,7 +431,7 @@ const SidebarMenuButton = React.forwardRef<
     ref
   ) => {
     const Comp = asChild ? Slot : "button"
-    const { isMobile, state } = useSidebar() // state for desktop collapsed tooltips
+    const { isMobile, state } = useSidebar() 
 
     const button = (
       <Comp
@@ -466,7 +460,7 @@ const SidebarMenuButton = React.forwardRef<
         <TooltipContent
           side="right"
           align="center"
-          // Tooltip hidden if sidebar is not collapsed (state !== "collapsed") or on mobile
+          
           hidden={state !== "collapsed" || isMobile}
           {...tooltip}
         />
@@ -477,17 +471,14 @@ const SidebarMenuButton = React.forwardRef<
 SidebarMenuButton.displayName = "SidebarMenuButton"
 
 
-// The rest of the Sidebar sub-components are kept for completeness,
-// but their direct usage might change with a top-menu layout.
-// They are primarily designed for a vertical sidebar.
 
 const SidebarRail = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<"button">
 >(({ className, ...props }, ref) => {
   const { toggleSidebar } = useSidebar()
-  // This rail is for resizing a desktop sidebar, likely not needed for top-menu.
-  // Could be hidden or removed if not applicable.
+  
+  
   return (
     <button
       ref={ref}
@@ -503,7 +494,7 @@ const SidebarRail = React.forwardRef<
         "group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full group-data-[collapsible=offcanvas]:hover:bg-sidebar",
         "[[data-side=left][data-collapsible=offcanvas]_&]:-right-2",
         "[[data-side=right][data-collapsible=offcanvas]_&]:-left-2",
-        "hidden", // Explicitly hide if not used for desktop sidebar
+        "hidden", 
         className
       )}
       {...props}
@@ -574,7 +565,7 @@ const SidebarGroupLabel = React.forwardRef<
       data-sidebar="group-label"
       className={cn(
         "duration-200 flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 outline-none ring-sidebar-ring transition-[margin,opa] ease-linear focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
-        "group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0", // For collapsed icon sidebar
+        "group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0", 
         className
       )}
       {...props}
@@ -596,7 +587,7 @@ const SidebarGroupAction = React.forwardRef<
       className={cn(
         "absolute right-3 top-3.5 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground outline-none ring-sidebar-ring transition-transform hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
         "after:absolute after:-inset-2 after:md:hidden",
-        "group-data-[collapsible=icon]:hidden", // For collapsed icon sidebar
+        "group-data-[collapsible=icon]:hidden", 
         className
       )}
       {...props}
@@ -638,7 +629,7 @@ const SidebarMenuAction = React.forwardRef<
         "peer-data-[size=sm]/menu-button:top-1",
         "peer-data-[size=default]/menu-button:top-1.5",
         "peer-data-[size=lg]/menu-button:top-2.5",
-        "group-data-[collapsible=icon]:hidden", // For collapsed icon sidebar
+        "group-data-[collapsible=icon]:hidden", 
         showOnHover &&
           "group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 data-[state=open]:opacity-100 peer-data-[active=true]/menu-button:text-sidebar-accent-foreground md:opacity-0",
         className
@@ -662,7 +653,7 @@ const SidebarMenuBadge = React.forwardRef<
       "peer-data-[size=sm]/menu-button:top-1",
       "peer-data-[size=default]/menu-button:top-1.5",
       "peer-data-[size=lg]/menu-button:top-2.5",
-      "group-data-[collapsible=icon]:hidden", // For collapsed icon sidebar
+      "group-data-[collapsible=icon]:hidden", 
       className
     )}
     {...props}
@@ -716,7 +707,7 @@ const SidebarMenuSub = React.forwardRef<
     data-sidebar="menu-sub"
     className={cn(
       "mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5",
-      "group-data-[collapsible=icon]:hidden", // For collapsed icon sidebar
+      "group-data-[collapsible=icon]:hidden", 
       className
     )}
     {...props}
@@ -747,11 +738,11 @@ const SidebarMenuSubButton = React.forwardRef<
       data-size={size}
       data-active={isActive}
       className={cn(
-        "flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground outline-none ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent", // Changed icon color to accent
+        "flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground outline-none ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent", 
         "data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground",
         size === "sm" && "text-xs",
         size === "md" && "text-sm",
-        "group-data-[collapsible=icon]:hidden", // For collapsed icon sidebar
+        "group-data-[collapsible=icon]:hidden", 
         className
       )}
       {...props}
@@ -786,4 +777,3 @@ export {
   SidebarTrigger,
   useSidebar,
 }
-

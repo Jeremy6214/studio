@@ -1,15 +1,16 @@
 
+
 "use client";
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation'; // useRouter import
+import { usePathname, useRouter } from 'next/navigation'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { navItems } from './nav-items'; 
+import { navItems as mainNavItemsData } from './nav-items'; 
 import type { NavItem } from './nav-items';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Globe, Menu, X, LogOut, Settings, LayoutList, Star, User as UserIcon } from 'lucide-react'; 
+import { Globe, Menu, X, LogOut, Settings, LayoutList, Star, User as UserIcon, BrainCircuit } from 'lucide-react'; 
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,13 +33,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { doc, updateDoc, setDoc, getDoc } from 'firebase/firestore'; // setDoc, getDoc
+import { doc, updateDoc, setDoc, getDoc } from 'firebase/firestore'; 
 import { db } from '@/lib/firebase'; 
-import type { UserNavItem as UserNavType } from './user-nav-items';
-import { signOut as firebaseSignOut } from 'firebase/auth'; // Renamed to avoid conflict
+import type { UserNavItem } from './user-nav-items';
+import { userNavItemsListDetails } from './user-nav-items';
+import { signOut as firebaseSignOut } from 'firebase/auth'; 
 import { auth } from '@/lib/firebase';
 import { Skeleton } from '../ui/skeleton';
-import { StudyAssistantDialog } from '@/components/ai/study-assistant-dialog'; // Import AI Assistant
+// StudyAssistantDialog ya no se usa aquí
+// import { StudyAssistantDialog } from '@/components/ai/study-assistant-dialog';
 
 type Theme = "light" | "dark" | "system";
 
@@ -57,11 +60,13 @@ interface AppLayoutTextsType {
   navRecovery: string;
   navMaterials: string;
   navSettings: string;
+  navAiAssistant: string;
   navMyForums: string;
   navFavorites: string;
   navLogout: string;
   loggedInAs: (name: string) => string;
   loadingUser: string;
+  loginSimulated: string;
 }
 
 const appLayoutTexts: Record<'es' | 'en', AppLayoutTextsType> = {
@@ -80,11 +85,13 @@ const appLayoutTexts: Record<'es' | 'en', AppLayoutTextsType> = {
     navRecovery: "Acceso de Recuperación",
     navMaterials: "Materiales de Estudio",
     navSettings: "Configuración",
+    navAiAssistant: "Asistente Nova",
     navMyForums: "Mis Foros",
     navFavorites: "Favoritos",
     navLogout: "Cerrar Sesión",
     loggedInAs: (name: string) => `Sesión iniciada como ${name}`,
     loadingUser: "Cargando...",
+    loginSimulated: "Iniciar sesión (Simulado)",
   },
   en: {
     searchPlaceholder: "Search platform...",
@@ -101,31 +108,33 @@ const appLayoutTexts: Record<'es' | 'en', AppLayoutTextsType> = {
     navRecovery: "Recovery Access",
     navMaterials: "Study Materials",
     navSettings: "Settings",
+    navAiAssistant: "Nova Assistant",
     navMyForums: "My Forums",
     navFavorites: "Favorites",
     navLogout: "Log Out",
     loggedInAs: (name: string) => `Logged in as ${name}`,
     loadingUser: "Loading...",
+    loginSimulated: "Log In (Simulated)",
   }
 };
 
 
 function DesktopNav({ currentLanguage, T, pathname }: { currentLanguage: 'es' | 'en', T: AppLayoutTextsType, pathname: string}) {
   const getNavItemTitle = (item: NavItem) => {
-    switch (item.href) {
-      case '/home': return T.navPanel;
-      case '/forums': return T.navForums;
-      case '/recovery-access': return T.navRecovery;
-      case '/study-materials': return T.navMaterials;
+    switch (item.key) {
+      case 'home': return T.navPanel;
+      case 'forums': return T.navForums;
+      case 'recovery-access': return T.navRecovery;
+      case 'study-materials': return T.navMaterials;
       default: return item.title;
     }
   };
 
   return (
     <nav className="hidden md:flex gap-1 items-center">
-      {navItems.map((item: NavItem) => (
+      {mainNavItemsData.map((item: NavItem) => (
         <Button
-          key={item.title}
+          key={item.key}
           asChild
           variant={pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/home') || (pathname === '/' && item.href === '/home') ? "secondary" : "ghost"}
           className="text-sm font-medium"
@@ -140,9 +149,133 @@ function DesktopNav({ currentLanguage, T, pathname }: { currentLanguage: 'es' | 
   );
 }
 
+// Main User Sidebar Component
+function UserDesktopSidebar({ currentLanguage, T, pathname, user, handleLogout, userNavItems, userProfileLoading }: { 
+  currentLanguage: 'es' | 'en', 
+  T: AppLayoutTextsType, 
+  pathname: string,
+  user: ReturnType<typeof useFirebaseAuth>['user'],
+  handleLogout: () => void,
+  userNavItems: UserNavItem[],
+  userProfileLoading: boolean,
+}) {
+  const [isCollapsed, setIsCollapsed] = React.useState(false); // Control sidebar collapse state
+
+  // Retrieve collapse state from localStorage or default to false
+  React.useEffect(() => {
+    const storedState = localStorage.getItem('sidebarCollapsed');
+    if (storedState) {
+      setIsCollapsed(JSON.parse(storedState));
+    }
+  }, []);
+
+  // Save collapse state to localStorage
+  const toggleCollapse = () => {
+    setIsCollapsed(prevState => {
+      const newState = !prevState;
+      localStorage.setItem('sidebarCollapsed', JSON.stringify(newState));
+      return newState;
+    });
+  };
+
+
+  return (
+    <aside className={cn(
+        "hidden md:fixed md:inset-y-0 md:left-0 md:z-40 md:flex md:flex-col border-r bg-card transition-all duration-300 ease-in-out",
+        isCollapsed ? "md:w-16" : "md:w-60" // Width for collapsed and expanded states
+      )}
+    >
+      <div className={cn("flex items-center border-b px-4", isCollapsed ? "justify-center h-16" : "h-16")}>
+        {!isCollapsed && (
+           <Link href="/home" className="flex items-center gap-2">
+             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="h-7 w-7">
+                <rect width="256" height="256" fill="none"></rect>
+                <path d="M41.4,104.6C22.8,123.1,16,144,16,160a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,104.6Z" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
+                <path d="M113.4,104.6c18.6-18.5,25.4-39.4,25.4-55.4a64,64,0,0,0-128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,0,50.2,22.1A71.8,71.8,0,0,0,113.4,104.6Z" transform="translate(256 48) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
+                <path d="M41.4,151.4c-18.6,18.5-25.4,39.4-25.4,55.4a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,151.4Z" transform="translate(48 256) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
+                <path d="M113.4,151.4c-18.6-18.5-25.4-39.4-25.4-55.4a64,64,0,0,1,128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,1-50.2,22.1A71.8,71.8,0,0,1,113.4,151.4Z" transform="translate(256 208) rotate(180)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
+            </svg>
+            <span className="font-bold text-lg text-foreground">DarkAISchool</span>
+          </Link>
+        )}
+        <Button variant="ghost" size="icon" onClick={toggleCollapse} className={cn(isCollapsed ? "absolute top-3 left-1/2 -translate-x-1/2" : "ml-auto")}>
+          <Menu className={cn("h-5 w-5 transition-transform duration-300", isCollapsed ? "rotate-180" : "")}/>
+        </Button>
+      </div>
+      <ScrollArea className="flex-1 py-2">
+        <nav className="grid gap-1 px-2">
+          {userNavItems.map((item) => (
+            <Tooltip key={item.title}>
+              <TooltipTrigger asChild>
+                {item.href ? (
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground",
+                      (pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/home')) && "bg-primary/10 text-primary font-semibold",
+                      isCollapsed && "justify-center"
+                    )}
+                    aria-disabled={item.disabled}
+                    onClick={(e) => item.disabled && e.preventDefault()}
+                  >
+                    <item.icon className={cn("h-5 w-5", isCollapsed ? "mx-auto" : "")} />
+                    {!isCollapsed && <span>{item.title}</span>}
+                  </Link>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      "w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground justify-start",
+                       isCollapsed && "justify-center"
+                    )}
+                    onClick={(e) => {
+                      if (item.disabled) e.preventDefault();
+                      else item.action?.();
+                    }}
+                    disabled={item.disabled}
+                  >
+                    <item.icon className={cn("h-5 w-5", isCollapsed ? "mx-auto" : "")} />
+                    {!isCollapsed && <span>{item.title}</span>}
+                  </Button>
+                )}
+              </TooltipTrigger>
+              {isCollapsed && <TooltipContent side="right"><p>{item.title}</p></TooltipContent>}
+            </Tooltip>
+          ))}
+        </nav>
+      </ScrollArea>
+       {user && !isCollapsed && (
+          <div className="mt-auto p-3 border-t">
+            { userProfileLoading ? (
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-9 w-9 rounded-full" />
+                <div className="space-y-1">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "Usuario"} data-ai-hint="user avatar"/>
+                  <AvatarFallback>{user.displayName?.substring(0,2).toUpperCase() || (user.email ? user.email.substring(0,2).toUpperCase() : "ET")}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm font-medium text-foreground truncate max-w-[150px]">{user.displayName || T.loadingUser}</p>
+                  <p className="text-xs text-muted-foreground truncate max-w-[150px]">{user.email}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+    </aside>
+  );
+}
+
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
-  const { user, loading, userProfile, setUserProfileState } = useFirebaseAuth(); 
+  const { user, loading: userProfileLoading, userProfile, setUserProfileState } = useFirebaseAuth(); 
   const [currentLanguage, setCurrentLanguage] = React.useState<'es' | 'en'>('es');
   const [isMobileSheetOpen, setIsMobileSheetOpen] = React.useState(false);
   const pathname = usePathname();
@@ -156,12 +289,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     if (themeToApply === "dark") {
       document.documentElement.classList.add("dark");
     } else if (themeToApply === "light") {
-      document.documentElement.classList.add("light");
-    } else { 
+      // document.documentElement.classList.add("light"); // Only add dark, light is default
+    } else { // system
       if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
         document.documentElement.classList.add("dark");
       } else {
-        document.documentElement.classList.remove("dark");
+        // document.documentElement.classList.remove("dark"); // default is light
       }
     }
   }, []);
@@ -169,43 +302,32 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     let themeToApply: Theme = 'system';
     let langToApply: 'es' | 'en' = 'es';
-  
-    if (loading) {
-      // While Firestore data is loading, try to apply from localStorage to reduce FOUC
+
+    if (userProfileLoading) {
       const storedTheme = localStorage.getItem("theme") as Theme | null;
       if (storedTheme) applyTheme(storedTheme);
-  
       const storedLang = localStorage.getItem("language") as 'es' | 'en' | null;
       if (storedLang) setCurrentLanguage(storedLang);
     } else {
-      // Once loading is false, userProfile (from Firestore or default) is available
       if (userProfile) {
         themeToApply = userProfile.tema || 'system';
         langToApply = userProfile.idioma || 'es';
         localStorage.setItem("theme", themeToApply);
         localStorage.setItem("language", langToApply);
       } else {
-        // No profile from Firestore, fallback to localStorage or defaults
         const storedTheme = localStorage.getItem("theme") as Theme | null;
-        if (storedTheme) {
-          themeToApply = storedTheme;
-        } else {
-          localStorage.setItem("theme", 'system'); 
-        }
-  
+        themeToApply = storedTheme || 'system';
+        localStorage.setItem("theme", themeToApply);
         const storedLang = localStorage.getItem("language") as 'es' | 'en' | null;
-        if (storedLang) {
-          langToApply = storedLang;
-        } else {
-          localStorage.setItem("language", 'es');
-        }
+        langToApply = storedLang || 'es';
+        localStorage.setItem("language", langToApply);
       }
     }
     
     applyTheme(themeToApply);
     setCurrentLanguage(langToApply);
   
-  }, [userProfile, loading, applyTheme]);
+  }, [userProfile, userProfileLoading, applyTheme]);
 
 
   React.useEffect(() => {
@@ -233,23 +355,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       description: T.languageChangedDesc(langName),
     });
 
-    if (user && user.uid) { // User is simulated, UID is "uid_test"
+    if (user && user.uid) { 
       try {
         const userDocRef = doc(db, "users", user.uid);
-        // Ensure document exists before updating, or use setDoc with merge
-        const docSnap = await getDoc(userDocRef);
-        if (docSnap.exists()) {
-            await updateDoc(userDocRef, { idioma: lang });
-        } else {
-            await setDoc(userDocRef, { idioma: lang }, { merge: true });
-        }
-        // Update local profile state if available
-        if (userProfile) {
-            setUserProfileState({...userProfile, idioma: lang});
-        } else {
-            // If profile wasn't loaded yet but we're setting lang, create minimal profile
-             setUserProfileState({ uid: user.uid, nombre: user.displayName || "", correo: user.email || "", idioma: lang, tema: (localStorage.getItem("theme") as Theme || "system")});
-        }
+        const currentProfileData = userProfile ? { ...userProfile } : { uid: user.uid, nombre: user.displayName || "", correo: user.email || "", tema:"system", idioma:"es" };
+        
+        await setDoc(userDocRef, { ...currentProfileData, idioma: lang }, { merge: true });
+        
+        setUserProfileState({...currentProfileData, idioma: lang} as UserProfile);
+
       } catch (error) {
         console.error("Error updating language in Firestore:", error);
         toast({ title: "Error", description: T.languageSaveError, variant: "destructive" });
@@ -259,58 +373,56 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   
   const handleLogout = async () => {
     try {
-      await firebaseSignOut(auth); // Use renamed import
+      await firebaseSignOut(auth); 
       toast({ title: "Sesión Cerrada", description: "Has cerrado tu sesión exitosamente." });
-      router.push('/home'); // Or redirect to a login page: router.push('/login');
+      // No user means page will show login state or redirect if protected
+      // router.push('/login'); // Assuming a login page exists
     } catch (error) {
       console.error("Error signing out: ", error);
       toast({ title: "Error", description: "No se pudo cerrar la sesión.", variant: "destructive" });
     }
   };
   
-  const userNavItemsList: UserNavType[] = [
-    { title: "Configuración", href: '/settings', icon: Settings }, // Will be translated by getNavItemTitle
-    { title: "Mis Foros", href: '/my-forums', icon: LayoutList, disabled: !user }, 
-    { title: "Favoritos", href: '/favorites', icon: Star, disabled: !user }, 
-    { 
-      title: "Cerrar Sesión", // Base title, will be translated
-      icon: LogOut, 
-      action: handleLogout,
-      disabled: !user
-    },
-  ];
+  const getNavItemTitle = React.useCallback((itemKey: string, langT: AppLayoutTextsType): string => {
+    const itemDetail = userNavItemsListDetails.find(detail => detail.key === itemKey);
+    if (!itemDetail) return itemKey; // Fallback to key if not found
 
-
-  const getNavItemTitle = (item: NavItem | UserNavType, langT: AppLayoutTextsType) => {
-    if ('href' in item && item.href) {
-      switch (item.href) {
-        case '/home': return langT.navPanel;
-        case '/forums': return langT.navForums;
-        case '/recovery-access': return langT.navRecovery;
-        case '/study-materials': return langT.navMaterials;
-        case '/settings': return langT.navSettings;
-        case '/my-forums': return langT.navMyForums;
-        case '/favorites': return langT.navFavorites;
-        default: return item.title;
-      }
+    switch (itemKey) {
+      case 'settings': return langT.navSettings;
+      case 'aiAssistant': return langT.navAiAssistant;
+      case 'myForums': return langT.navMyForums;
+      case 'favorites': return langT.navFavorites;
+      case 'logout': return langT.navLogout;
+      default: return itemDetail.defaultTitle; // Use default from definition
     }
-    const logoutTitleEs = appLayoutTexts.es.navLogout;
-    const logoutTitleEn = appLayoutTexts.en.navLogout;
-    if (item.title === logoutTitleEs || item.title === logoutTitleEn || item.title === "Cerrar Sesión" || item.title === "Log Out") {
-        return langT.navLogout;
-    }
+  }, []);
 
-    return item.title;
-  };
-  
-  if (loading && !userProfile) { // Show skeleton if loading and no profile yet (initial load)
+  const userNavItems: UserNavItem[] = React.useMemo(() => 
+    userNavItemsListDetails.map(detail => ({
+      title: getNavItemTitle(detail.key, T),
+      href: detail.href,
+      icon: detail.icon,
+      action: detail.actionKey === 'logoutAction' ? handleLogout : undefined,
+      disabled: (detail.key === 'myForums' || detail.key === 'favorites' || detail.key === 'settings' || detail.key === 'aiAssistant' || detail.actionKey === 'logoutAction') && !user,
+    })),
+  [T, user, handleLogout, getNavItemTitle]);
+
+
+  if (userProfileLoading && !userProfile && typeof window !== 'undefined' && !localStorage.getItem('theme')) { 
     return (
       <div className="flex min-h-screen w-full animate-pulse">
+        <div className="hidden md:flex md:w-60 flex-col border-r bg-card p-4 space-y-3">
+            <Skeleton className="h-8 w-3/4" />
+            {[...Array(5)].map((_,i) => <Skeleton key={i} className="h-9 w-full" />)}
+            <div className="mt-auto space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+            </div>
+        </div>
         <div className="flex flex-col flex-1">
           <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/50 px-4 sm:px-6 shadow-sm backdrop-blur-sm">
             <div className="h-8 w-8 bg-muted rounded-md md:hidden"></div> 
-            <div className="h-8 w-8 bg-muted rounded-full"></div> 
-            <div className="h-6 w-32 bg-muted rounded-md ml-2"></div> 
+            <div className="h-6 w-32 bg-muted rounded-md"></div> 
             <div className="hidden md:flex flex-1 justify-center gap-2">
               {[1,2,3,4].map(i => <div key={i} className="h-8 w-24 bg-muted rounded-md"></div>)}
             </div>
@@ -330,12 +442,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const sidebarWidthClass = "md:ml-60"; // Adjust if sidebar width changes; md:ml-16 for collapsed
 
   return (
     <TooltipProvider>
       <div className="flex min-h-screen w-full">
-        <div className="flex flex-col flex-1">
+        <UserDesktopSidebar 
+            currentLanguage={currentLanguage} 
+            T={T} 
+            pathname={pathname} 
+            user={user} 
+            handleLogout={handleLogout} 
+            userNavItems={userNavItems}
+            userProfileLoading={userProfileLoading}
+        />
+        
+        <div className={cn("flex flex-col flex-1", sidebarWidthClass )}> {/* Dynamic margin based on sidebar state */}
           <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6 shadow-sm">
+            {/* Hamburger for Mobile - to open combined sheet */}
             <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="md:hidden shrink-0">
@@ -361,9 +485,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
                 <ScrollArea className="flex-1">
                   <nav className="grid gap-2 p-4">
+                    {/* Main Navigation in Mobile Sheet */}
                     <h3 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{T.mainNavigation}</h3>
-                    {navItems.map((item) => (
-                      <SheetClose asChild key={item.title}>
+                    {mainNavItemsData.map((item) => (
+                      <SheetClose asChild key={item.key}>
                         <Link
                           href={item.href}
                           className={cn(
@@ -372,13 +497,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                           )}
                         >
                           <item.icon className="h-4 w-4" />
-                          {getNavItemTitle(item, T)}
+                          {item.title} {/* Direct title from navItemsData */}
                         </Link>
                       </SheetClose>
                     ))}
                     <Separator className="my-3"/>
+                    {/* User Navigation in Mobile Sheet */}
                      <h3 className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{T.userNavigation}</h3>
-                    {userNavItemsList.map((item) => ( item.href ?
+                    {userNavItems.map((item) => ( item.href ?
                       (<SheetClose asChild key={item.title}>
                         <Link
                           href={item.href}
@@ -394,7 +520,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                           tabIndex={item.disabled ? -1 : undefined}
                         >
                           <item.icon className="h-4 w-4" />
-                          {getNavItemTitle(item, T)}
+                          {item.title}
                         </Link>
                       </SheetClose>) : (
                          <SheetClose asChild key={item.title}>
@@ -414,7 +540,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             disabled={item.disabled}
                           >
                             <item.icon className="h-4 w-4" />
-                            {getNavItemTitle(item, T)}
+                            {item.title}
                           </Button>
                         </SheetClose>
                       )
@@ -438,22 +564,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </SheetContent>
             </Sheet>
             
-            <Link href="/home" className="flex items-center gap-2 md:mr-auto">
-                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="h-8 w-8">
-                    <rect width="256" height="256" fill="none"></rect>
-                    <path d="M41.4,104.6C22.8,123.1,16,144,16,160a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,104.6Z" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
-                    <path d="M113.4,104.6c18.6-18.5,25.4-39.4,25.4-55.4a64,64,0,0,0-128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,0,50.2,22.1A71.8,71.8,0,0,0,113.4,104.6Z" transform="translate(256 48) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
-                    <path d="M41.4,151.4c-18.6,18.5-25.4,39.4-25.4,55.4a64,64,0,0,0,128,0c0-16-6.8-36.9-25.4-55.4a71.8,71.8,0,0,0-50.2-22.1A71.8,71.8,0,0,0,41.4,151.4Z" transform="translate(48 256) rotate(90)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
-                    <path d="M113.4,151.4c-18.6-18.5-25.4-39.4-25.4-55.4a64,64,0,0,1,128,0c0,16,6.8,36.9,25.4,55.4a71.8,71.8,0,0,1-50.2,22.1A71.8,71.8,0,0,1,113.4,151.4Z" transform="translate(256 208) rotate(180)" fill="none" stroke="hsl(var(--primary))" strokeLinecap="round" strokeLinejoin="round" strokeWidth="16"></path>
-                </svg>
-              <span className="font-bold text-xl text-foreground">DarkAISchool</span>
-            </Link>
-            
+            {/* Desktop Top Navigation (Main Nav) */}
             <div className="hidden md:flex flex-1 justify-center">
               <DesktopNav currentLanguage={currentLanguage} T={T} pathname={pathname} />
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+            {/* Right side of Header */}
+            <div className={cn("flex items-center gap-2 sm:gap-3", {"ml-auto": true /* Ensures it's on the right when no desktop nav */ })}>
               <form className="hidden sm:block" onSubmit={handleSearchSubmit}> 
                 <div className="relative">
                   <Input
@@ -480,7 +597,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {loading ? (
+              {/* User Avatar and Dropdown for Desktop - Part of Top Header Now */}
+               {userProfileLoading && !user ? (
                  <Skeleton className="h-9 w-9 rounded-full" />
               ) : user ? (
                 <DropdownMenu>
@@ -501,24 +619,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuGroup>
-                      {userNavItemsList.filter(item => item.href).map(item => (
+                      {userNavItems.filter(item => item.href).map(item => (
                         <DropdownMenuItem key={item.title} asChild disabled={item.disabled}>
                           <Link href={item.href!} className={cn("flex items-center", item.disabled && "opacity-50 cursor-not-allowed")}>
                             <item.icon className="mr-2 h-4 w-4" />
-                            <span>{getNavItemTitle(item, T)}</span>
+                            <span>{item.title}</span>
                           </Link>
                         </DropdownMenuItem>
                       ))}
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />
-                    {userNavItemsList.find(item => item.action) && (
+                    {userNavItems.find(item => item.action) && (
                        <DropdownMenuItem 
-                         onClick={!userNavItemsList.find(item => item.action)?.disabled ? userNavItemsList.find(item => item.action)?.action : undefined} 
-                         className={cn("cursor-pointer flex items-center", userNavItemsList.find(item => item.action)?.disabled && "opacity-50 cursor-not-allowed")}
-                         disabled={userNavItemsList.find(item => item.action)?.disabled}
+                         onClick={!userNavItems.find(item => item.action)?.disabled ? userNavItems.find(item => item.action)?.action : undefined} 
+                         className={cn("cursor-pointer flex items-center", userNavItems.find(item => item.action)?.disabled && "opacity-50 cursor-not-allowed")}
+                         disabled={userNavItems.find(item => item.action)?.disabled}
                         >
                          <LogOut className="mr-2 h-4 w-4" />
-                         <span>{getNavItemTitle(userNavItemsList.find(item => item.action)!, T)}</span>
+                         <span>{userNavItems.find(item => item.action)!.title}</span>
                        </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
@@ -526,12 +644,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               ) : (
                  <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" onClick={() => router.push('/home')} aria-label={currentLanguage === 'es' ? "Iniciar sesión (Simulado)" : "Log In (Simulated)"}>
+                        {/* This button's action needs to be defined, e.g., router.push('/login') if a login page exists */}
+                        <Button variant="ghost" size="icon" onClick={() => router.push('/home')} aria-label={T.loginSimulated}>
                            <UserIcon className="h-5 w-5" />
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p>{currentLanguage === 'es' ? "Iniciar sesión (Simulado)" : "Log In (Simulated)"}</p>
+                        <p>{T.loginSimulated}</p>
                     </TooltipContent>
                  </Tooltip>
               )}
@@ -539,9 +658,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </header>
           
           <main className="flex-1 p-4 md:p-6 lg:p-8 bg-muted/40 overflow-auto">
+            {/* This is where the page content (children) will be rendered */}
             {children}
           </main>
-          <StudyAssistantDialog currentLanguage={currentLanguage} />
+          {/* StudyAssistantDialog has been removed. The new AI assistant will be a page. */}
         </div>
       </div>
     </TooltipProvider>

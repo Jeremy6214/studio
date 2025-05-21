@@ -1,38 +1,20 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { Settings, LayoutList, Star, LogOut, UserCircle } from 'lucide-react';
-// No importamos de Firebase
+import { Settings, LayoutList, Star, LogOut, UserCircle, BrainCircuit } from 'lucide-react'; // BrainCircuit for AI
 
 export interface UserNavItem {
   title: string;
   href?: string;
   icon: LucideIcon;
-  action?: () => void; // Ya no es async
+  action?: () => void; 
   disabled?: boolean;
 }
 
 // Lista de items simplificada o vacía si no hay sesión de usuario.
-// Como no hay sesión de usuario, estas opciones no tienen mucho sentido.
-// Las dejaré comentadas o puedes eliminarlas.
-export const userNavItems: UserNavItem[] = [
-  // {
-  //   title: 'Configuración',
-  //   href: '/settings',
-  //   icon: Settings,
-  // },
-  // {
-  //   title: 'Mis Foros',
-  //   href: '/my-forums',
-  //   icon: LayoutList,
-  // },
-  // {
-  //   title: 'Favoritos',
-  //   href: '/favorites',
-  //   icon: Star,
-  // },
-  // {
-  //   title: 'Iniciar Sesión', // Cambiado de Cerrar Sesión
-  //   href: '/login', // Asumimos una página de login placeholder
-  //   icon: UserCircle, 
-  // },
+export const userNavItemsListDetails: Array<{ key: string; defaultTitle: string; href?: string; icon: LucideIcon; actionKey?: 'logoutAction' }> = [
+  { key: 'settings', defaultTitle: 'Configuración', href: '/settings', icon: Settings },
+  { key: 'aiAssistant', defaultTitle: 'Asistente Nova', href: '/ai-assistant', icon: BrainCircuit },
+  { key: 'myForums', defaultTitle: 'Mis Foros', href: '/my-forums', icon: LayoutList },
+  { key: 'favorites', defaultTitle: 'Favoritos', href: '/favorites', icon: Star },
+  { key: 'logout', defaultTitle: 'Cerrar Sesión', icon: LogOut, actionKey: 'logoutAction' },
 ];
