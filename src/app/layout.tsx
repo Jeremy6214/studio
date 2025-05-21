@@ -1,6 +1,5 @@
-
 import type { Metadata } from 'next';
-import { Figtree } from 'next/font/google'; // Changed from Geist
+import { Figtree } from 'next/font/google';
 import './globals.css';
 import { AppLayout } from '@/components/layout/app-layout';
 import { Toaster } from "@/components/ui/toaster";
@@ -23,8 +22,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" suppressHydrationWarning> {/* Added suppressHydrationWarning for theme handling */}
-      <body className={`${figtree.variable} font-sans antialiased`}> {/* Apply font variable and a sans-serif fallback */}
+    <html lang="es" suppressHydrationWarning>
+      <body className={`${figtree.variable} font-sans antialiased`}>
         <AppLayout>
           {children}
         </AppLayout>
