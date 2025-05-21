@@ -1,26 +1,23 @@
 import {genkit} from 'genkit';
-// import {openai} from '@genkit-ai/openai'; // Import OpenAI plugin - Temporarily commented out due to installation issues
-import {googleAI} from '@genkit-ai/googleai';
+// import {openai} from '@genkit-ai/openai'; // Import OpenAI plugin
+import {googleAI} from '@genkit-ai/googleai'; // Keep GoogleAI for now if needed for specific models or fallback
 
 // Initialize Genkit with the GoogleAI plugin.
-// If OpenAI installation issues are resolved, you can re-enable the openai plugin.
+// IMPORTANT: Ensure GOOGLE_API_KEY is set in your .env.local or environment variables.
 export const ai = genkit({
   plugins: [
-    // openai({ // Temporarily commented out
-    //   // You can specify a default text model here if you want, e.g.,
-    //   // textModel: 'gpt-4o'
-    //   // dallEModel: 'dall-e-3' // You can specify default DALL-E model too
-    // }),
     googleAI({
-      // You can specify a default text model for Google AI here if needed,
-      // e.g., textModel: 'gemini-1.5-flash-latest'
-      // By default, Genkit will use a suitable Gemini model.
+      // You can specify a default text model for Google AI here if desired, e.g.:
+      // textModel: 'gemini-1.5-flash-latest'
+      // You can also specify a default image generation model if the plugin supports it directly
+      // or handle it within the flow.
     }),
+    // openai({ // Comentado o eliminar si solo se usa GoogleAI
+    //   // Puedes especificar un modelo de texto de OpenAI por defecto aquí si lo deseas, ej:
+    //   // textModel: 'gpt-4o'
+    //   // dallEModel: 'dall-e-3' // También puedes especificar el modelo DALL-E por defecto
+    // }),
   ],
-  // IMPORTANT: Ensure GOOGLE_API_KEY is set in your .env.local or environment variables for Google AI.
-  // IMPORTANT: If you re-enable OpenAI, ensure OPENAI_API_KEY is set.
+  // Ensure GOOGLE_API_KEY (for Google AI) is set in your environment variables.
+  // If you were using OpenAI, OPENAI_API_KEY would be needed.
 });
-
-// The ai.registry.selectModel method is not used in Genkit 1.x for this purpose.
-// Models are specified directly in prompts or plugin configurations.
-// For example, 'googleai/gemini-1.5-flash-latest' is already specified in study-assistant-flow.ts.
