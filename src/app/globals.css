@@ -5,29 +5,29 @@
 
 @layer base {
   :root {
-    /* Light Theme (Updated for a more modern feel) */
-    --background: 0 0% 100%; /* white */
-    --foreground: 224 71.4% 4.1%; /* Darker, near black for better contrast */
+    /* Light Theme (Updated with new vibrant accents) */
+    --background: 220 20% 98%; /* Very light gray, almost white */
+    --foreground: 240 10% 3.9%; /* Dark, near black for text */
 
-    --card: 0 0% 100%;
-    --card-foreground: 224 71.4% 4.1%;
+    --card: 220 20% 100%; /* White cards */
+    --card-foreground: 240 10% 3.9%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 224 71.4% 4.1%;
+    --popover: 220 20% 100%;
+    --popover-foreground: 240 10% 3.9%;
 
-    --primary: 210 100% 50%; /* Electric Blue */
-    --primary-foreground: 0 0% 100%; /* White text on blue */
+    --primary: 330 100% 75%; /* Neon Pink */
+    --primary-foreground: 240 10% 3.9%; /* Dark text on neon pink for light theme might be better for readability in some cases */
 
-    --secondary: 270 90% 65%; /* Neon Purple */
-    --secondary-foreground: 0 0% 100%; /* White text on purple */
+    --secondary: 257 90% 66%; /* Lavender Violet */
+    --secondary-foreground: 0 0% 100%; /* White text on lavender */
 
-    --muted: 220 14.3% 95.9%; /* Lighter gray */
-    --muted-foreground: 220 8.9% 46.1%; /* Mid gray for muted text */
+    --muted: 220 15% 96.1%; /* Lighter gray */
+    --muted-foreground: 240 5% 45.1%; /* Mid gray for muted text */
 
-    --accent: 220 14.3% 92.9%; /* Light gray for hover states */
-    --accent-foreground: 224 71.4% 4.1%;
+    --accent: 220 14.3% 93.9%; /* Light gray for hover states */
+    --accent-foreground: 240 10% 3.9%;
 
-    --destructive: 0 84.2% 60.2%; /* Red */
+    --destructive: 0 72.2% 50.6%; /* Adjusted Red */
     --destructive-foreground: 0 0% 98%;
 
     --border: 220 13% 91%; /* Light border */
@@ -36,84 +36,85 @@
     --input-border: 220 13% 86%;
     --input: 220 13% 86%; 
 
-    --ring: 210 100% 50%; /* Electric blue for focus rings */
+    --ring: 330 100% 75%; /* Neon Pink for focus rings */
 
     --radius: 0.75rem; /* XL rounded corners */
 
     /* Sidebar specific colors (Light Theme) */
-    --sidebar-background: 220 20% 98%; /* Very light gray, almost white */
-    --sidebar-foreground: 224 71.4% 4.1%; 
+    --sidebar-background: 220 16% 94%; /* Slightly darker light gray for sidebar */
+    --sidebar-foreground: 240 10% 3.9%; 
     --sidebar-primary: hsl(var(--primary)); 
-    --sidebar-primary-foreground: hsl(var(--primary-foreground));
-    --sidebar-accent: 220 15% 94%; 
+    --sidebar-primary-foreground: hsl(var(--primary-foreground)); /* Consider dark text for pink in light theme */
+    --sidebar-accent: 220 15% 90%; 
     --sidebar-accent-foreground: hsl(var(--primary)); 
-    --sidebar-border: 220 13% 88%; 
+    --sidebar-border: 220 13% 85%; 
     --sidebar-ring: hsl(var(--primary));
 
     --chart-1: hsl(var(--primary));
     --chart-2: 173 58% 39%;
-    --chart-3: 280 65% 60%; /* Adjusted to match new secondary */
+    --chart-3: hsl(var(--secondary)); 
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
 
-    /* Techno-fantasy Glow - Light mode (subtle) */
-    --techno-glow-primary: 0 0px 15px -3px hsla(var(--primary), 0.3);
-    --techno-glow-secondary: 0 0px 15px -3px hsla(var(--secondary), 0.3);
+    /* Techno-fantasy Glow - Light mode (more subtle) */
+    --techno-glow-primary: 0 0px 12px -2px hsla(var(--primary), 0.4);
+    --techno-glow-secondary: 0 0px 12px -2px hsla(var(--secondary), 0.4);
   }
 
   .dark {
-    /* Dark Theme (Techno-Fantasy) */
-    --background: 220 20% 7%; /* Very dark desaturated blue/gray */
-    --foreground: 210 20% 95%; /* Light, clear text */
+    /* Dark Theme (Techno-Magic) */
+    --background: 240 30% 14%; /* #1a1a2e Dark Bluish Gray */
+    --foreground: 240 20% 96.5%; /* Light, clear text (e.g., #f0f0f8) */
     
-    --card: 220 20% 10%; /* Slightly lighter than background */
-    --card-foreground: 210 20% 95%;
+    --card: 240 28% 17%; /* Slightly lighter than background (e.g., #202038) */
+    --card-foreground: 240 20% 96.5%;
 
-    --popover: 220 20% 9%; /* Darker than card, for popovers */
-    --popover-foreground: 210 20% 95%;
+    --popover: 240 28% 15%; /* Darker than card, for popovers */
+    --popover-foreground: 240 20% 96.5%;
 
-    --primary: 210 100% 55%; /* Electric Blue - slightly brighter for dark mode */
-    --primary-foreground: 210 20% 98%;
+    --primary: 330 100% 75%; /* #ff80bf Neon Pink */
+    --primary-foreground: 330 100% 15%; /* Very dark pink/black for contrast on bright pink */
 
-    --secondary: 270 100% 70%; /* Neon Purple - brighter for dark mode */
-    --secondary-foreground: 210 20% 98%;
+    --secondary: 257 90% 66%; /* #8b5cf6 Lavender Violet */
+    --secondary-foreground: 0 0% 100%; /* White text on lavender */
 
-    --muted: 220 15% 15%; /* Darker muted background */
-    --muted-foreground: 210 15% 65%; /* Lighter muted text */
+    --muted: 240 25% 22%; /* Darker muted background (e.g., #2d2d44) */
+    --muted-foreground: 240 15% 65%; /* Lighter muted text */
 
-    --accent: 220 15% 20%; /* Dark accent for hover states */
-    --accent-foreground: hsl(var(--primary)); /* Primary color for text on accent */
+    --accent: 240 25% 25%; /* Dark accent for hover states (e.g., #33334d) */
+    --accent-foreground: hsl(var(--primary)); /* Neon Pink for text on accent */
 
-    --destructive: 0 70% 55%; /* Slightly desaturated red for dark mode */
+    --destructive: 0 70% 55%; /* Red, slightly desaturated */
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 15% 25%; /* Subtle border, slightly lighter than card */
+    --border: 240 20% 25%; /* Subtle border, slightly lighter than card (e.g., #333340) */
     
-    --input-bg: 220 15% 12%; /* Dark input background */
-    --input-border: 220 15% 30%;
-    --input: 220 15% 30%; 
+    --input-bg: 240 26% 19%; /* Dark input background (e.g., #26263c) */
+    --input-border: 240 20% 30%; /* (e.g. #404050) */
+    --input: 240 20% 30%; 
 
-    --ring: hsl(var(--primary)); 
+    --ring: hsl(var(--primary)); /* Neon Pink for focus rings */
 
-    /* Sidebar specific colors (Dark Theme) */
-    --sidebar-background: 220 20% 9%; /* Slightly different from main bg for depth */
-    --sidebar-foreground: 210 20% 90%;
+    /* Sidebar specific colors (Dark Theme - Techno-Magic) */
+    /* Slightly more transparent/ethereal feel or distinct from main background */
+    --sidebar-background: 240 30% 16%; /* Slightly lighter/bluer than main BG (e.g., #1c1c33) */
+    --sidebar-foreground: 240 20% 90%;
     --sidebar-primary: hsl(var(--primary)); 
     --sidebar-primary-foreground: hsl(var(--primary-foreground));
-    --sidebar-accent: 220 15% 14%;  
+    --sidebar-accent: 240 28% 22%;  /* (e.g., #2c2c46) */
     --sidebar-accent-foreground: hsl(var(--primary)); 
-    --sidebar-border: 220 15% 18%; 
+    --sidebar-border: 240 25% 23%; /* (e.g., #2e2e3a) */
     --sidebar-ring: hsl(var(--primary));
 
     --chart-1: hsl(var(--primary));
-    --chart-2: 173 80% 45%; /* Brighter chart colors for dark mode */
-    --chart-3: hsl(var(--secondary));
-    --chart-4: 43 90% 70%;
-    --chart-5: 27 95% 72%;
+    --chart-2: hsl(var(--secondary)); 
+    --chart-3: 190 100% 60%; /* Cyan bright */
+    --chart-4: 50 100% 60%; /* Bright Yellow */
+    --chart-5: 120 70% 60%; /* Bright Green */
 
     /* Techno-fantasy Glow - Dark mode */
-    --techno-glow-primary: 0 0px 20px -2px hsla(var(--primary), 0.6);
-    --techno-glow-secondary: 0 0px 20px -2px hsla(var(--secondary), 0.6);
+    --techno-glow-primary: 0 0px 20px -2px hsla(var(--primary), 0.7), 0 0px 10px -3px hsla(var(--primary), 0.5) inset;
+    --techno-glow-secondary: 0 0px 20px -2px hsla(var(--secondary), 0.7), 0 0px 10px -3px hsla(var(--secondary), 0.5) inset;
   }
 }
 
