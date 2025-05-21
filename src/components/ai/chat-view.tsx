@@ -7,7 +7,7 @@ import type { ChatMessage } from '@/types/ai-chat';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, User, Bot, Image as ImageIcon, AlertCircle, Loader2 } from 'lucide-react';
+import { Send, User, Bot, Image as ImageIcon, AlertCircle, Loader2, MessageSquareText } from 'lucide-react';
 import NextImage from 'next/image';
 import { askStudyAssistant, type StudyAssistantInput, type StudyAssistantOutput } from '@/ai/flows/study-assistant-flow';
 import { useToast } from '@/hooks/use-toast';
