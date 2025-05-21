@@ -1,7 +1,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Rocket, BookOpen } from "lucide-react";
+import { Rocket, BookOpen, BrainCircuit } from "lucide-react"; // Added BrainCircuit here
 
 export default function RootPage() {
   return (
