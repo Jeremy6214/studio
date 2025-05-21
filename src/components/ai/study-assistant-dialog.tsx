@@ -20,7 +20,7 @@ import { askStudyAssistant, type StudyAssistantInput, type StudyAssistantOutput 
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { Avatar } from '@/components/ui/avatar';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Message {
   id: string;
@@ -47,19 +47,21 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const getWelcomeMessage = useCallback((lang: 'es' | 'en'): Message => ({
-    id: 'welcome-' + Date.now(),
+    id: `welcome-${lang}`, // More stable ID
     type: 'assistant',
     text: lang === 'es' ? '¡Hola! Soy Nova 🚀, tu Asistente de Estudio IA en DarkAIschool. ¿En qué aventura de aprendizaje nos embarcamos hoy?' : "Hi! I'm Nova 🚀, your DarkAIschool AI Study Assistant. What learning adventure are we embarking on today?",
   }), []);
 
   useEffect(() => {
     if (isOpen) {
-      if (messages.length === 0 || (messages.length === 1 && messages[0].id.startsWith('welcome-'))) {
-        setMessages([getWelcomeMessage(currentLanguage)]);
+      const welcomeMsg = getWelcomeMessage(currentLanguage);
+      // Set welcome message if messages is empty or the first message is not the current welcome message
+      if (messages.length === 0 || messages[0].id !== welcomeMsg.id) {
+        setMessages([welcomeMsg]);
       }
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen, currentLanguage, messages, getWelcomeMessage]);
+  }, [isOpen, currentLanguage, getWelcomeMessage]); // 'messages' removed from dependency array
 
 
   useEffect(() => {
@@ -94,10 +96,10 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
     const lowerQuery = currentQuery.toLowerCase();
     const generateImageExplicitly = 
       lowerQuery.includes("imagen") ||
-      lowerQuery.includes("dibuj") || // "dibuja", "dibujo"
+      lowerQuery.includes("dibuj") || 
       lowerQuery.includes("diagrama") ||
-      lowerQuery.includes("mapa") || // "mapa conceptual", "mapa mental"
-      lowerQuery.includes("visual") || // "visualización", "visualizar"
+      lowerQuery.includes("mapa") || 
+      lowerQuery.includes("visual") || 
       lowerQuery.includes("picture") ||
       lowerQuery.includes("draw") ||
       lowerQuery.includes("diagram") ||
@@ -116,7 +118,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
         type: 'assistant',
         text: assistantResponse.mainResponse,
         imageUrl: assistantResponse.generatedImageUrl,
-        imageQuery: assistantResponse.imageQuerySuggestion, // Changed from imageGenerationQuery
+        imageQuery: assistantResponse.imageQuerySuggestion,
         suggestions: assistantResponse.followUpSuggestions,
       };
       setMessages(prev => prev.filter(m => !m.isLoading).concat(assistantResponseMessage));
