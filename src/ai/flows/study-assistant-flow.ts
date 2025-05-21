@@ -77,7 +77,7 @@ const internalStudyAssistantFlow = ai.defineFlow(
   },
   async (input): Promise<StudyAssistantOutput> => {
     let mainAiResponseOutput: Omit<StudyAssistantOutput, 'isError'> | undefined;
-    const errorBase = { mainResponse: "", isError: true };
+    const errorBase = { mainResponse: "", isError: true, followUpSuggestions: [] };
 
     try {
       console.log('[NovaFlow] Input:', input);
@@ -85,7 +85,7 @@ const internalStudyAssistantFlow = ai.defineFlow(
       mainAiResponseOutput = output;
 
       if (!mainAiResponseOutput) {
-        console.error('[NovaFlow] No output from main prompt.');
+        console.error('[NovaFlow] No output from main prompt. Check LLM response and API key validity.');
         const errorMsg = input.language === 'es' ? 'Nova no pudo procesar tu solicitud de texto en este momento. 🌌 Parece que hay interferencia en el canal.' : "Nova couldn't process your text request at this time. 🌌 Channel interference detected.";
         return { ...errorBase, mainResponse: errorMsg };
       }
@@ -98,7 +98,7 @@ const internalStudyAssistantFlow = ai.defineFlow(
             model: 'googleai/gemini-2.0-flash-exp', // Ensure this model is available and enabled for your key
             prompt: mainAiResponseOutput.imageQuerySuggestion,
             config: {
-              responseModalities: ['IMAGE'], // Only request IMAGE
+              responseModalities: ['TEXT', 'IMAGE'], // MODIFIED: Request both TEXT and IMAGE
             },
           });
           imageUrl = media?.url;
@@ -111,18 +111,18 @@ const internalStudyAssistantFlow = ai.defineFlow(
         } catch (imgError: any) {
           console.error('[NovaFlow] Error generating image:', imgError.message || imgError, imgError.code);
           let errorMsg = input.language === 'es' ? "\n(Nova no pudo materializar la visualización solicitada en este momento. 🌠)" : "\n(Nova couldn't materialize the requested visualization at this time. 🌠)";
-           if (imgError.code === 'FAILED_PRECONDITION' || (imgError.message && (imgError.message.includes('API key') || imgError.message.includes('GEMINI_API_KEY') || imgError.message.includes('GOOGLE_API_KEY')))) {
+           if (imgError.message && (imgError.message.includes('API key') || imgError.message.includes('GEMINI_API_KEY') || imgError.message.includes('GOOGLE_API_KEY')) || imgError.code === 'UNAUTHENTICATED' || imgError.code === 'PERMISSION_DENIED') {
              errorMsg = input.language === 'es'
-              ? "\n(Error de autenticación con el Oráculo Visual. Verifica la GOOGLE_API_KEY para imágenes.)"
-              : "\n(Authentication error with the Visual Oracle. Please check GOOGLE_API_KEY for images.)";
+              ? "\n(Error de autenticación con el Oráculo Visual. Verifica tu GOOGLE_API_KEY y sus permisos para imágenes.)"
+              : "\n(Authentication error with the Visual Oracle. Please check your GOOGLE_API_KEY and its permissions for images.)";
           } else if (imgError.message && imgError.message.toLowerCase().includes('quota')) {
              errorMsg = input.language === 'es'
               ? "\n(Se ha alcanzado la cuota de energía para visualizaciones. Inténtalo más tarde. ⏳)"
               : "\n(Energy quota for visualizations has been reached. Please try again later. ⏳)";
-          } else if (imgError.message && imgError.message.toLowerCase().includes('unsupported')) {
+          } else if (imgError.message && (imgError.message.toLowerCase().includes('unsupported') || imgError.message.toLowerCase().includes('model cannot be used'))) {
             errorMsg = input.language === 'es'
-              ? "\n(El Oráculo Visual no pudo procesar esa solicitud de imagen. Intenta con otra idea. 🤔)"
-              : "\n(The Visual Oracle couldn't process that image request. Try another idea. 🤔)";
+              ? "\n(El Oráculo Visual no pudo procesar esa solicitud de imagen o el modelo no está disponible. Intenta con otra idea. 🤔)"
+              : "\n(The Visual Oracle couldn't process that image request or the model is unavailable. Try another idea. 🤔)";
           }
           mainAiResponseOutput.mainResponse += errorMsg;
         }
@@ -139,10 +139,10 @@ const internalStudyAssistantFlow = ai.defineFlow(
     } catch (error: any) {
       console.error('[NovaFlow] Main flow error:', error.message || error, error.code, error.stack);
       let responseText = "";
-      if (error.code === 'FAILED_PRECONDITION' || (error.message && (error.message.includes('API key') || error.message.includes('GEMINI_API_KEY') || error.message.includes('GOOGLE_API_KEY')))) {
+      if (error.message && (error.message.includes('API key') || error.message.includes('GEMINI_API_KEY') || error.message.includes('GOOGLE_API_KEY')) || error.code === 'UNAUTHENTICATED' || error.code === 'PERMISSION_DENIED' || error.code === 'FAILED_PRECONDITION') {
          responseText = input.language === 'es'
-            ? "Error de Sincronización: La clave de acceso al Núcleo IA (GOOGLE_API_KEY) no está configurada o no es válida para Nova. Por favor, verifica tus credenciales en las variables de entorno. 🔑"
-            : "Sync Error: The AI Core access key (GOOGLE_API_KEY) is not configured or is invalid for Nova. Please check your credentials in the environment variables. 🔑";
+            ? "Error de Sincronización: La clave de acceso al Núcleo IA (GOOGLE_API_KEY) no está configurada, no es válida o no tiene permisos para Nova. Por favor, verifica tus credenciales y permisos en las variables de entorno y en Google Cloud Console. 🔑"
+            : "Sync Error: The AI Core access key (GOOGLE_API_KEY) is not configured, is invalid, or lacks permissions for Nova. Please check your credentials and permissions in the environment variables and Google Cloud Console. 🔑";
       } else if (error.message && error.message.toLowerCase().includes('quota')) {
          responseText = input.language === 'es'
             ? "Energía Agotada: Se ha alcanzado la cuota para el servicio de IA de Nova. Por favor, inténtalo más tarde. ⏳"
