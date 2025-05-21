@@ -1,8 +1,9 @@
+
 'use server';
 /**
  * @fileOverview AI Study Assistant for DarkAIschool.
  *
- * - studyAssistantFlow - Handles user queries, provides explanations, study aids, and optional image generation.
+ * - askStudyAssistant - Handles user queries, provides explanations, study aids, and optional image generation.
  * - StudyAssistantInput - Input type for the flow.
  * - StudyAssistantOutput - Output type for the flow.
  */
@@ -10,14 +11,14 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const StudyAssistantInputSchema = z.object({
+const StudyAssistantInputSchema = z.object({
   query: z.string().describe('The user_s academic query or request for assistance.'),
   language: z.enum(['es', 'en']).describe('The primary language for the interaction, detected from the UI.'),
   // We could add conversationHistory here in the future for more context
 });
 export type StudyAssistantInput = z.infer<typeof StudyAssistantInputSchema>;
 
-export const StudyAssistantOutputSchema = z.object({
+const StudyAssistantOutputSchema = z.object({
   mainResponse: z.string().describe('The main textual answer or explanation from the AI assistant.'),
   generatedImageUrl: z.string().optional().describe('URL of a generated image, if one was created to illustrate the concept.'),
   followUpSuggestions: z.array(z.string()).optional().describe('Optional follow-up questions or topics the user might be interested in.'),
@@ -61,8 +62,8 @@ Contexto del Usuario:
 `,
 });
 
-// Main flow function
-export const studyAssistantFlow = ai.defineFlow(
+// Main flow function - not exported directly
+const internalStudyAssistantFlow = ai.defineFlow(
   {
     name: 'studyAssistantFlow',
     inputSchema: StudyAssistantInputSchema,
@@ -110,7 +111,7 @@ export const studyAssistantFlow = ai.defineFlow(
   }
 );
 
-// Export a wrapper function to be called from the client component
+// Export a wrapper async function to be called from the client component
 export async function askStudyAssistant(input: StudyAssistantInput): Promise<StudyAssistantOutput> {
-  return studyAssistantFlow(input);
+  return internalStudyAssistantFlow(input);
 }
