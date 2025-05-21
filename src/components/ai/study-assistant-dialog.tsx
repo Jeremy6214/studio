@@ -15,17 +15,18 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sparkles, Send, User, Bot, Image as ImageIcon, AlertCircle } from 'lucide-react';
-import NextImage from 'next/image'; // Renamed to avoid conflict with Lucide's Image
+import NextImage from 'next/image';
 import { askStudyAssistant, type StudyAssistantInput, type StudyAssistantOutput } from '@/ai/flows/study-assistant-flow';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { Avatar } from '@/components/ui/avatar'; // AvatarFallback removed as it's part of Avatar
+import { Avatar } from '@/components/ui/avatar';
 
 interface Message {
   id: string;
   type: 'user' | 'assistant';
   text?: string;
   imageUrl?: string;
+  imageQuery?: string;
   suggestions?: string[];
   isLoading?: boolean;
 }
@@ -47,7 +48,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
   const getWelcomeMessage = useCallback((lang: 'es' | 'en'): Message => ({
     id: 'welcome-' + Date.now(),
     type: 'assistant',
-    text: lang === 'es' ? '¡Hola! Soy tu Asistente de Estudio IA de DarkAIschool. ¿En qué puedo ayudarte hoy?' : 'Hi! I_m your DarkAIschool AI Study Assistant. How can I help you today?',
+    text: lang === 'es' ? '¡Hola! Soy tu Asistente de Estudio IA de DarkAIschool (Simulado Avanzado). ¿En qué puedo ayudarte hoy?' : 'Hi! I_m your DarkAIschool AI Study Assistant (Advanced Simulated). How can I help you today?',
   }), []);
 
   useEffect(() => {
@@ -55,7 +56,8 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
       if (messages.length === 0) {
         setMessages([getWelcomeMessage(currentLanguage)]);
       }
-      inputRef.current?.focus();
+      // Short delay to ensure dialog is fully rendered before focusing
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen, currentLanguage, messages.length, getWelcomeMessage]);
 
@@ -101,6 +103,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
                                   lowerQuery.includes("draw");
 
     try {
+      // askStudyAssistant is now locally defined and might be synchronous or return a resolved promise
       const assistantResponse: StudyAssistantOutput = await askStudyAssistant({
         query: currentQuery,
         language: currentLanguage,
@@ -112,17 +115,18 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
         type: 'assistant',
         text: assistantResponse.mainResponse,
         imageUrl: assistantResponse.generatedImageUrl,
+        imageQuery: assistantResponse.imageGenerationQuery,
         suggestions: assistantResponse.followUpSuggestions,
       };
       setMessages(prev => prev.filter(m => !m.isLoading).concat(assistantResponseMessage));
 
     } catch (error: any) {
       console.error('Error calling study assistant:', error);
-      const errorMessageText = error.message || (currentLanguage === 'es' ? 'Hubo un problema al contactar al asistente. Inténtalo de nuevo.' : 'There was an issue contacting the assistant. Please try again.');
+      const errorMessageText = error.message || (currentLanguage === 'es' ? 'Hubo un problema al procesar tu solicitud (simulada).' : 'There was an issue processing your request (simulated).');
       
       toast({
         variant: 'destructive',
-        title: currentLanguage === 'es' ? 'Error de IA' : 'AI Error',
+        title: currentLanguage === 'es' ? 'Error del Asistente' : 'Assistant Error',
         description: errorMessageText,
       });
       setMessages(prev => prev.filter(m => !m.isLoading).concat({
@@ -146,7 +150,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
         size="icon"
         className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50 bg-primary text-primary-foreground hover:bg-primary/90"
         onClick={() => setIsOpen(true)}
-        aria-label={currentLanguage === 'es' ? "Abrir Asistente de Estudio IA" : "Open AI Study Assistant"}
+        aria-label={currentLanguage === 'es' ? "Abrir Asistente de Estudio IA (Simulado)" : "Open AI Study Assistant (Simulated)"}
       >
         <Sparkles className="h-7 w-7" />
       </Button>
@@ -160,10 +164,10 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
           <DialogHeader className="p-4 border-b">
             <DialogTitle className="flex items-center gap-2 text-lg text-primary-foreground">
               <Sparkles className="h-5 w-5 text-primary" />
-              {currentLanguage === 'es' ? 'Asistente de Estudio IA' : 'AI Study Assistant'}
+              {currentLanguage === 'es' ? 'Asistente de Estudio IA (Simulado)' : 'AI Study Assistant (Simulated)'}
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              {currentLanguage === 'es' ? 'Pide ayuda, explicaciones, ideas para estudiar, ¡y más!' : 'Ask for help, explanations, study ideas, and more!'}
+              {currentLanguage === 'es' ? 'Pide ayuda, explicaciones, ideas para estudiar, ¡y más! (Respuestas simuladas)' : 'Ask for help, explanations, study ideas, and more! (Simulated responses)'}
             </DialogDescription>
           </DialogHeader>
 
@@ -177,7 +181,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
                   }`}
                 >
                   {msg.type === 'assistant' && (
-                    <Avatar className="h-8 w-8 bg-primary text-primary-foreground flex items-center justify-center shrink-0">
+                     <Avatar className="h-8 w-8 bg-primary text-primary-foreground flex items-center justify-center shrink-0">
                       <Bot className="h-5 w-5" />
                     </Avatar>
                   )}
@@ -189,23 +193,23 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
                     }`}
                   >
                     {msg.isLoading ? (
-                       <div className="flex items-center space-x-2 p-1">
-                         <Skeleton className="h-3 w-3 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.3s]" />
-                         <Skeleton className="h-3 w-3 rounded-full bg-muted-foreground/30 animate-bounce [animation-delay:-0.15s]" />
-                         <Skeleton className="h-3 w-3 rounded-full bg-muted-foreground/30 animate-bounce" />
+                       <div className="flex items-center space-x-1.5 p-1">
+                         <div className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                         <div className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                         <div className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"></div>
                        </div>
                     ) : (
                       <>
                         {msg.text && <p className="text-sm whitespace-pre-wrap">{msg.text}</p>}
                         {msg.imageUrl && (
                            <div className="mt-2 p-1 bg-background/50 rounded-md">
-                             <NextImage // Use NextImage here
+                             <NextImage
                                src={msg.imageUrl}
-                               alt={currentLanguage === 'es' ? "Imagen generada por IA" : "AI generated image"}
-                               width={300} // Adjust as needed, or use layout="responsive" with appropriate parent styling
-                               height={200} // Adjust as needed
+                               alt={msg.imageQuery || (currentLanguage === 'es' ? "Imagen simulada por IA" : "AI simulated image")}
+                               width={300}
+                               height={200}
                                className="rounded-md object-contain max-h-[300px] w-auto"
-                               data-ai-hint="diagram illustration"
+                               data-ai-hint={msg.imageQuery || "abstract illustration"}
                              />
                            </div>
                         )}

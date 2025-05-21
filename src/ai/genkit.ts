@@ -1,9 +1,8 @@
 
-import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai';
+// Este archivo ya no es necesario para la versión simulada sin Genkit.
+// Se puede dejar vacío o eliminar si no se planea reintroducir Genkit.
+// Por ahora, lo dejo vacío para evitar errores de importación si algún
+// archivo aún lo referencia inadvertidamente.
 
-export const ai = genkit({
-  plugins: [googleAI()],
-  // Default model for text generation tasks like prompts
-  model: 'googleai/gemini-1.5-flash-latest', 
-});
+// Si se elimina, asegurarse de quitar cualquier importación de '@/ai/genkit'
+// en otros archivos (aunque no debería haberlas ahora).
