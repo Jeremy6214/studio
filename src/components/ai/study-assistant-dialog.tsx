@@ -20,6 +20,7 @@ import { askStudyAssistant, type StudyAssistantInput, type StudyAssistantOutput 
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { Avatar } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip
 
 interface Message {
   id: string;
@@ -48,18 +49,17 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
   const getWelcomeMessage = useCallback((lang: 'es' | 'en'): Message => ({
     id: 'welcome-' + Date.now(),
     type: 'assistant',
-    text: lang === 'es' ? '¡Hola! Soy tu Asistente de Estudio IA de DarkAIschool (Simulado Avanzado). ¿En qué puedo ayudarte hoy?' : 'Hi! I_m your DarkAIschool AI Study Assistant (Advanced Simulated). How can I help you today?',
+    text: lang === 'es' ? '¡Hola! Soy Nova 🚀, tu Asistente de Estudio IA en DarkAIschool. ¿En qué aventura de aprendizaje nos embarcamos hoy?' : "Hi! I'm Nova 🚀, your DarkAIschool AI Study Assistant. What learning adventure are we embarking on today?",
   }), []);
 
   useEffect(() => {
     if (isOpen) {
-      if (messages.length === 0) {
+      if (messages.length === 0 || (messages.length === 1 && messages[0].id.startsWith('welcome-'))) {
         setMessages([getWelcomeMessage(currentLanguage)]);
       }
-      // Short delay to ensure dialog is fully rendered before focusing
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen, currentLanguage, messages.length, getWelcomeMessage]);
+  }, [isOpen, currentLanguage, messages, getWelcomeMessage]);
 
 
   useEffect(() => {
@@ -92,18 +92,19 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
     setIsResponding(true);
 
     const lowerQuery = currentQuery.toLowerCase();
-    const generateImageExplicitly = lowerQuery.includes("imagen") ||
-                                  lowerQuery.includes("picture") ||
-                                  lowerQuery.includes("diagrama") ||
-                                  lowerQuery.includes("diagram") ||
-                                  lowerQuery.includes("mapa") ||
-                                  lowerQuery.includes("map") ||
-                                  lowerQuery.includes("visual") ||
-                                  lowerQuery.includes("dibuja") || 
-                                  lowerQuery.includes("draw");
+    const generateImageExplicitly = 
+      lowerQuery.includes("imagen") ||
+      lowerQuery.includes("dibuj") || // "dibuja", "dibujo"
+      lowerQuery.includes("diagrama") ||
+      lowerQuery.includes("mapa") || // "mapa conceptual", "mapa mental"
+      lowerQuery.includes("visual") || // "visualización", "visualizar"
+      lowerQuery.includes("picture") ||
+      lowerQuery.includes("draw") ||
+      lowerQuery.includes("diagram") ||
+      lowerQuery.includes("map");
+
 
     try {
-      // askStudyAssistant is now locally defined and might be synchronous or return a resolved promise
       const assistantResponse: StudyAssistantOutput = await askStudyAssistant({
         query: currentQuery,
         language: currentLanguage,
@@ -115,18 +116,18 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
         type: 'assistant',
         text: assistantResponse.mainResponse,
         imageUrl: assistantResponse.generatedImageUrl,
-        imageQuery: assistantResponse.imageGenerationQuery,
+        imageQuery: assistantResponse.imageQuerySuggestion, // Changed from imageGenerationQuery
         suggestions: assistantResponse.followUpSuggestions,
       };
       setMessages(prev => prev.filter(m => !m.isLoading).concat(assistantResponseMessage));
 
     } catch (error: any) {
       console.error('Error calling study assistant:', error);
-      const errorMessageText = error.message || (currentLanguage === 'es' ? 'Hubo un problema al procesar tu solicitud (simulada).' : 'There was an issue processing your request (simulated).');
+      const errorMessageText = error.message || (currentLanguage === 'es' ? 'Nova tuvo un problema al procesar tu solicitud.' : 'Nova had an issue processing your request.');
       
       toast({
         variant: 'destructive',
-        title: currentLanguage === 'es' ? 'Error del Asistente' : 'Assistant Error',
+        title: currentLanguage === 'es' ? 'Error del Asistente Nova' : 'Nova Assistant Error',
         description: errorMessageText,
       });
       setMessages(prev => prev.filter(m => !m.isLoading).concat({
@@ -145,15 +146,24 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
   };
 
   const defaultTrigger = (
-    <Button
-        variant="outline"
-        size="icon"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50 bg-primary text-primary-foreground hover:bg-primary/90"
-        onClick={() => setIsOpen(true)}
-        aria-label={currentLanguage === 'es' ? "Abrir Asistente de Estudio IA (Simulado)" : "Open AI Study Assistant (Simulated)"}
-      >
-        <Sparkles className="h-7 w-7" />
-      </Button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+            <Button
+                variant="outline"
+                size="icon"
+                className="fixed bottom-6 right-6 h-16 w-16 rounded-full shadow-lg z-50 bg-primary text-primary-foreground hover:bg-primary/90 border-2 border-primary-foreground/50"
+                onClick={() => setIsOpen(true)}
+                aria-label={currentLanguage === 'es' ? "Abrir Asistente IA Nova" : "Open AI Assistant Nova"}
+              >
+                <Sparkles className="h-8 w-8" />
+              </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="bg-popover text-popover-foreground p-2 rounded-md shadow-lg">
+          <p>{currentLanguage === 'es' ? "Chatea con Nova ✨" : "Chat with Nova ✨"}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 
   return (
@@ -164,10 +174,10 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
           <DialogHeader className="p-4 border-b">
             <DialogTitle className="flex items-center gap-2 text-lg text-primary-foreground">
               <Sparkles className="h-5 w-5 text-primary" />
-              {currentLanguage === 'es' ? 'Asistente de Estudio IA (Simulado)' : 'AI Study Assistant (Simulated)'}
+              {currentLanguage === 'es' ? 'Asistente IA Nova' : 'AI Assistant Nova'}
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              {currentLanguage === 'es' ? 'Pide ayuda, explicaciones, ideas para estudiar, ¡y más! (Respuestas simuladas)' : 'Ask for help, explanations, study ideas, and more! (Simulated responses)'}
+              {currentLanguage === 'es' ? 'Pregúntale a Nova. ¡Está aquí para ayudarte a aprender! 🚀' : 'Ask Nova. Here to help you learn! 🚀'}
             </DialogDescription>
           </DialogHeader>
 
@@ -186,26 +196,26 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
                     </Avatar>
                   )}
                   <div
-                    className={`max-w-[75%] rounded-lg px-3 py-2 shadow-sm ${
+                    className={`max-w-[85%] rounded-lg px-3 py-2 shadow-sm ${
                       msg.type === 'user'
                         ? 'bg-primary text-primary-foreground rounded-br-none'
                         : 'bg-muted text-muted-foreground rounded-bl-none'
                     }`}
                   >
                     {msg.isLoading ? (
-                       <div className="flex items-center space-x-1.5 p-1">
-                         <div className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                         <div className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                         <div className="h-2 w-2 bg-muted-foreground/50 rounded-full animate-bounce"></div>
+                       <div className="flex items-center space-x-2 p-2">
+                          <div className="h-2.5 w-2.5 bg-foreground/30 rounded-full animate-pulse [animation-delay:-0.3s]"></div>
+                          <div className="h-2.5 w-2.5 bg-foreground/30 rounded-full animate-pulse [animation-delay:-0.15s]"></div>
+                          <div className="h-2.5 w-2.5 bg-foreground/30 rounded-full animate-pulse"></div>
                        </div>
                     ) : (
                       <>
-                        {msg.text && <p className="text-sm whitespace-pre-wrap">{msg.text}</p>}
+                        {msg.text && <p className="text-sm whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br />') }}></p>}
                         {msg.imageUrl && (
                            <div className="mt-2 p-1 bg-background/50 rounded-md">
                              <NextImage
                                src={msg.imageUrl}
-                               alt={msg.imageQuery || (currentLanguage === 'es' ? "Imagen simulada por IA" : "AI simulated image")}
+                               alt={msg.imageQuery || (currentLanguage === 'es' ? "Imagen generada por Nova" : "Image generated by Nova")}
                                width={300}
                                height={200}
                                className="rounded-md object-contain max-h-[300px] w-auto"
@@ -216,7 +226,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
                         {msg.suggestions && msg.suggestions.length > 0 && (
                           <div className="mt-3 pt-2 border-t border-muted-foreground/20 space-y-1.5">
                             <p className="text-xs font-medium text-muted-foreground/80">
-                              {currentLanguage === 'es' ? 'Sugerencias:' : 'Suggestions:'}
+                              {currentLanguage === 'es' ? 'Nova sugiere:' : 'Nova suggests:'}
                             </p>
                             <div className="flex flex-wrap gap-1.5">
                                 {msg.suggestions.map((sugg, index) => (
@@ -256,7 +266,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
             >
               <Textarea
                 ref={inputRef}
-                placeholder={currentLanguage === 'es' ? 'Escribe tu pregunta aquí...' : 'Type your question here...'}
+                placeholder={currentLanguage === 'es' ? 'Escribe tu pregunta para Nova...' : 'Type your question for Nova...'}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => {
@@ -269,7 +279,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
                 className="min-h-[40px] max-h-[120px] flex-grow resize-none bg-input border-input pr-10"
                 disabled={isResponding}
               />
-              <Button type="submit" size="icon" disabled={isResponding || !inputValue.trim()} aria-label={currentLanguage === 'es' ? 'Enviar mensaje' : 'Send message'}>
+              <Button type="submit" size="icon" disabled={isResponding || !inputValue.trim()} aria-label={currentLanguage === 'es' ? 'Enviar mensaje a Nova' : 'Send message to Nova'}>
                 <Send className="h-5 w-5" />
               </Button>
             </form>
