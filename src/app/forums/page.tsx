@@ -16,67 +16,67 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ForumPost } from "@/types/firestore"; 
+import type { ForumPost } from "@/types/firestore";
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const initialPosts: ForumPost[] = [
-  { id: '1', titulo: 'Bienvenida al Holo-Foro Arcano', contenido: 'Este es un espacio para discutir temas relevantes para educadores y acólitos de DarkAISchool. ¡Comparte tu sabiduría!', autorId:'uid_system', autorNombre: 'Archivista Principal', autorFoto: 'https://placehold.co/40x40.png?text=AP', fechaCreacion: new Date(2024, 6, 1), categoria: 'profesores', likes: 10, gracias: 5, commentsCount: 2 },
-  { id: '2', titulo: '¿Cómo manifestar flujos de Genkit en la Noosfera?', contenido: 'Tengo dudas sobre la integración de Genkit con Server Components y Actions. ¿Algún Iluminado tiene experiencia?', autorId:'uid_student1', autorNombre: 'Neófito Curioso', autorFoto: 'https://placehold.co/40x40.png?text=NC', fechaCreacion: new Date(2024, 6, 10), categoria: 'estudiantes', likes: 15, gracias: 3, commentsCount: 1 },
-  { id: '3', titulo: 'Grimorio Prohibido: Despliegue Arcano de Tailwind', contenido: 'Comparto esta guía que me pareció muy útil para aprender Tailwind desde cero: [link a la guía]. Que los fotones os guíen.', autorId:'uid_collaborator', autorNombre: 'Tecnomante Anónimo', autorFoto: 'https://placehold.co/40x40.png?text=TA', fechaCreacion: new Date(2024, 6, 15), categoria: 'recursos', likes: 25, gracias: 12, commentsCount: 0 },
+  { id: '1', titulo: 'Bienvenida a los Foros de Discusión', contenido: 'Este es un espacio para discutir temas relevantes para educadores y estudiantes de EduConnect. ¡Comparte tus conocimientos!', autorId:'uid_system', autorNombre: 'Administrador', autorFoto: 'https://placehold.co/40x40.png?text=AD', fechaCreacion: new Date(2024, 6, 1), categoria: 'profesores', likes: 10, gracias: 5, commentsCount: 2 },
+  { id: '2', titulo: '¿Cómo integrar Genkit con Server Components?', contenido: 'Tengo dudas sobre la integración de Genkit con Server Components y Actions. ¿Alguien tiene experiencia?', autorId:'uid_student1', autorNombre: 'Estudiante Curioso', autorFoto: 'https://placehold.co/40x40.png?text=EC', fechaCreacion: new Date(2024, 6, 10), categoria: 'estudiantes', likes: 15, gracias: 3, commentsCount: 1 },
+  { id: '3', titulo: 'Guía Útil: Introducción a Tailwind CSS', contenido: 'Comparto esta guía que me pareció muy útil para aprender Tailwind desde cero: [link a la guía]. Espero les sirva.', autorId:'uid_collaborator', autorNombre: 'Colaborador Anónimo', autorFoto: 'https://placehold.co/40x40.png?text=CA', fechaCreacion: new Date(2024, 6, 15), categoria: 'recursos', likes: 25, gracias: 12, commentsCount: 0 },
 ];
 
 
-function CreatePostDialog({ 
-  open, 
+function CreatePostDialog({
+  open,
   onOpenChange,
   onPostCreated
-}: { 
-  open: boolean; 
-  onOpenChange: (open: boolean) => void; 
-  onPostCreated: (newPost: ForumPost) => void; 
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onPostCreated: (newPost: ForumPost) => void;
 }) {
   const { toast } = useToast();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState<ForumPost["categoria"] | "">("");
-  const [authorName, setAuthorName] = useState("Piloto Anónimo"); 
+  const [authorName, setAuthorName] = useState("Usuario Anónimo");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = () => {
     setTitle("");
     setContent("");
     setCategory("");
-    setAuthorName("Piloto Anónimo");
+    setAuthorName("Usuario Anónimo");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim() || !category) {
-      toast({ title: "Error de Transmisión", description: "Por favor, completa todos los campos del holomensaje.", variant: "destructive" });
+      toast({ title: "Error", description: "Por favor, completa todos los campos de la publicación.", variant: "destructive" });
       return;
     }
-    
-    setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
 
-    const newPostData: ForumPost = { 
-      id: String(Date.now()), 
+    setIsSubmitting(true);
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+
+    const newPostData: ForumPost = {
+      id: String(Date.now()),
       titulo: title,
       contenido: content,
       categoria: category as ForumPost["categoria"],
       autorId: "uid_test", // Simulated user
       autorNombre: authorName,
-      autorFoto: `https://placehold.co/40x40.png?text=${authorName.substring(0,1) || 'P'}`,
+      autorFoto: `https://placehold.co/40x40.png?text=${authorName.substring(0,1) || 'U'}`,
       fechaCreacion: new Date(),
       likes: 0,
       gracias: 0,
       commentsCount: 0,
     };
-    
+
     onPostCreated(newPostData);
-    toast({ title: "Holo-Transmisión Enviada", description: `La publicación "${title}" ha sido emitida a la Noosfera.` });
-    onOpenChange(false); 
+    toast({ title: "Publicación Enviada", description: `La publicación "${title}" ha sido creada.` });
+    onOpenChange(false);
     resetForm();
     setIsSubmitting(false);
   };
@@ -85,59 +85,59 @@ function CreatePostDialog({
     <Dialog open={open} onOpenChange={(isOpen) => { onOpenChange(isOpen); if (!isOpen) resetForm(); }}>
       <DialogContent className="sm:max-w-lg bg-card border-border shadow-xl techno-glow-primary">
         <DialogHeader>
-          <DialogTitle className="text-primary text-2xl">Crear Nueva Holo-Transmisión</DialogTitle>
+          <DialogTitle className="text-primary text-2xl">Crear Nueva Publicación</DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Comparte tus edictos, preguntas o conocimiento arcano con la legión.
+            Comparte tus preguntas, ideas o recursos con la comunidad.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="post-author" className="text-foreground">Tu Identificador de Piloto (Opcional)</Label>
-              <Input 
-                id="post-author" 
+              <Label htmlFor="post-author" className="text-foreground">Tu Nombre (Opcional)</Label>
+              <Input
+                id="post-author"
                 value={authorName}
-                onChange={(e) => setAuthorName(e.target.value || "Piloto Anónimo")}
-                className="bg-input border-input focus:techno-glow-primary" 
+                onChange={(e) => setAuthorName(e.target.value || "Usuario Anónimo")}
+                className="bg-input border-input focus:techno-glow-primary"
                 disabled={isSubmitting}
-                placeholder="Piloto Anónimo"
+                placeholder="Usuario Anónimo"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="post-title" className="text-foreground">Asunto de la Transmisión</Label>
-              <Input 
-                id="post-title" 
+              <Label htmlFor="post-title" className="text-foreground">Título de la Publicación</Label>
+              <Input
+                id="post-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="bg-input border-input focus:techno-glow-primary" 
+                className="bg-input border-input focus:techno-glow-primary"
                 required
                 disabled={isSubmitting}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="post-category" className="text-foreground">Canal Arcano</Label>
-              <Select 
-                onValueChange={(value) => setCategory(value as ForumPost["categoria"])} 
+              <Label htmlFor="post-category" className="text-foreground">Categoría</Label>
+              <Select
+                onValueChange={(value) => setCategory(value as ForumPost["categoria"])}
                 value={category}
                 disabled={isSubmitting}
               >
                 <SelectTrigger id="post-category" className="bg-input border-input focus:techno-glow-primary">
-                  <SelectValue placeholder="Selecciona un canal" />
+                  <SelectValue placeholder="Selecciona una categoría" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border shadow-lg">
-                  <SelectItem value="profesores">Consultas de Iluminados</SelectItem>
-                  <SelectItem value="estudiantes">Apoyo entre Acólitos</SelectItem>
-                  <SelectItem value="recursos">Reliquias y Conocimiento</SelectItem>
-                  <SelectItem value="general">Debate General</SelectItem>
+                  <SelectItem value="profesores">Consultas de Educadores</SelectItem>
+                  <SelectItem value="estudiantes">Apoyo entre Estudiantes</SelectItem>
+                  <SelectItem value="recursos">Recursos y Materiales</SelectItem>
+                  <SelectItem value="general">Discusión General</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="post-content" className="text-foreground">Contenido del Holomensaje</Label>
-              <Textarea 
+              <Label htmlFor="post-content" className="text-foreground">Contenido de la Publicación</Label>
+              <Textarea
                 id="post-content"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="bg-input border-input focus:techno-glow-primary min-h-[120px]" 
+                className="bg-input border-input focus:techno-glow-primary min-h-[120px]"
                 rows={6}
                 required
                 disabled={isSubmitting}
@@ -146,7 +146,7 @@ function CreatePostDialog({
           <DialogFooter className="pt-4">
             <Button type="button" variant="outline" onClick={() => { onOpenChange(false); resetForm(); }} disabled={isSubmitting} className="hover:scale-105 transition-transform">Cancelar</Button>
             <Button type="submit" disabled={isSubmitting || !title.trim() || !content.trim() || !category} className="hover:scale-105 hover:brightness-125 transition-transform techno-glow-primary">
-              {isSubmitting ? "Transmitiendo..." : "Emitir Holomensaje"}
+              {isSubmitting ? "Publicando..." : "Publicar"}
             </Button>
           </DialogFooter>
         </form>
@@ -160,7 +160,7 @@ export default function ForumsPage() {
   const { toast } = useToast();
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   const [posts, setPosts] = useState<ForumPost[]>(initialPosts);
-  const [isLoadingPosts, setIsLoadingPosts] = useState(true); 
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
 
   useEffect(() => {
     // Simulate loading
@@ -172,16 +172,16 @@ export default function ForumsPage() {
   const handlePostCreated = (newPost: ForumPost) => {
     setPosts(prevPosts => [newPost, ...prevPosts].sort((a,b) => new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime()));
   };
-  
+
   const handleReaction = (postId: string, reactionType: 'likes' | 'gracias') => {
-    setPosts(prevPosts => 
-      prevPosts.map(post => 
-        post.id === postId 
-          ? { ...post, [reactionType]: (post[reactionType] || 0) + 1 } // Increment count directly
+    setPosts(prevPosts =>
+      prevPosts.map(post =>
+        post.id === postId
+          ? { ...post, [reactionType]: (post[reactionType] || 0) + 1 }
           : post
       )
     );
-    toast({ description: `¡Has ${reactionType === 'likes' ? 'resonado con' : 'agradecido'} la transmisión!`});
+    toast({ description: `¡Has ${reactionType === 'likes' ? 'reaccionado con Me Gusta' : 'agradecido'} la publicación!`});
   };
 
 
@@ -191,13 +191,13 @@ export default function ForumsPage() {
   const postsGeneral = useMemo(() => posts.filter(p => p.categoria === "general"), [posts]);
 
 
-  const formatDate = (timestamp: any) => { 
+  const formatDate = (timestamp: any) => {
     if (!timestamp) return "Fecha desconocida";
     const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
     return formatDistanceToNow(date, { addSuffix: true, locale: es });
   };
 
-  if (isLoadingPosts) { 
+  if (isLoadingPosts) {
      return (
       <div className="space-y-8">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-border">
@@ -228,83 +228,83 @@ export default function ForumsPage() {
     <div className="space-y-8">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-border">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">Holo-Foros de DarkAISchool</h1>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">Foros de Discusión de EduConnect</h1>
           <p className="text-muted-foreground text-lg mt-2">
-            Participa en discusiones holográficas, consulta a los Iluminados y comparte conocimiento arcano.
+            Participa en discusiones, consulta a educadores y comparte recursos.
           </p>
         </div>
         <Button variant="default" size="lg" onClick={() => setIsCreatePostModalOpen(true)} className="hover:scale-105 hover:brightness-125 transition-transform techno-glow-primary shadow-lg">
             <PlusCircle className="mr-2 h-5 w-5" />
-            Nueva Holo-Transmisión
+            Nueva Publicación
         </Button>
       </header>
 
       <Tabs defaultValue="profesores" className="w-full">
         <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-4 h-auto sm:h-12 bg-muted rounded-lg p-1">
           <TabsTrigger value="profesores" className="py-2.5 sm:py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:techno-glow-primary rounded-md transition-all">
-            <GraduationCap className="mr-2 h-5 w-5" /> Consultas Iluminados
+            <GraduationCap className="mr-2 h-5 w-5" /> Consultas Educadores
           </TabsTrigger>
           <TabsTrigger value="estudiantes" className="py-2.5 sm:py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:techno-glow-primary rounded-md transition-all">
-            <HelpCircle className="mr-2 h-5 w-5" /> Apoyo Acólitos
+            <HelpCircle className="mr-2 h-5 w-5" /> Apoyo Estudiantes
           </TabsTrigger>
           <TabsTrigger value="recursos" className="py-2.5 sm:py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:techno-glow-primary rounded-md transition-all">
-            <Share2 className="mr-2 h-5 w-5" /> Reliquias y Conocimiento
+            <Share2 className="mr-2 h-5 w-5" /> Recursos y Materiales
           </TabsTrigger>
           <TabsTrigger value="general" className="py-2.5 sm:py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:techno-glow-primary rounded-md transition-all">
-            <MessageSquare className="mr-2 h-5 w-5" /> Debate General
+            <MessageSquare className="mr-2 h-5 w-5" /> Discusión General
           </TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="profesores" className="mt-8">
-          <ForumCategoryContent 
-            categoryName="Consultas de Iluminados" 
-            posts={postsProfesores} 
-            formatDate={formatDate} 
+          <ForumCategoryContent
+            categoryName="Consultas de Educadores"
+            posts={postsProfesores}
+            formatDate={formatDate}
             onReact={handleReaction}
           />
         </TabsContent>
         <TabsContent value="estudiantes" className="mt-8">
-          <ForumCategoryContent 
-            categoryName="Apoyo entre Acólitos" 
-            posts={postsEstudiantes} 
-            formatDate={formatDate} 
+          <ForumCategoryContent
+            categoryName="Apoyo entre Estudiantes"
+            posts={postsEstudiantes}
+            formatDate={formatDate}
             onReact={handleReaction}
           />
         </TabsContent>
         <TabsContent value="recursos" className="mt-8">
-         <ForumCategoryContent 
-            categoryName="Reliquias y Conocimiento Compartido" 
-            posts={postsRecursos} 
+         <ForumCategoryContent
+            categoryName="Recursos y Materiales Compartidos"
+            posts={postsRecursos}
             formatDate={formatDate}
             onReact={handleReaction}
           />
         </TabsContent>
          <TabsContent value="general" className="mt-8">
-         <ForumCategoryContent 
-            categoryName="Debate General de la Noosfera" 
-            posts={postsGeneral} 
+         <ForumCategoryContent
+            categoryName="Discusión General"
+            posts={postsGeneral}
             formatDate={formatDate}
             onReact={handleReaction}
           />
         </TabsContent>
       </Tabs>
-      
-      <CreatePostDialog 
-        open={isCreatePostModalOpen} 
-        onOpenChange={setIsCreatePostModalOpen} 
+
+      <CreatePostDialog
+        open={isCreatePostModalOpen}
+        onOpenChange={setIsCreatePostModalOpen}
         onPostCreated={handlePostCreated}
       />
     </div>
   );
 }
 
-function ForumCategoryContent({ 
-  categoryName, 
+function ForumCategoryContent({
+  categoryName,
   posts,
   formatDate,
   onReact
-}: { 
-  categoryName: string; 
+}: {
+  categoryName: string;
   posts: ForumPost[];
   formatDate: (timestamp: any) => string;
   onReact: (postId: string, reactionType: 'likes' | 'gracias') => void;
@@ -321,10 +321,10 @@ function ForumCategoryContent({
                 </Link>
                 <CardDescription className="flex items-center gap-2 text-xs mt-2 text-muted-foreground">
                   <Avatar className="h-6 w-6 border border-border">
-                    <AvatarImage src={post.autorFoto || `https://placehold.co/40x40.png?text=${post.autorNombre?.substring(0,1) || 'P'}`} data-ai-hint="user avatar small"/>
-                    <AvatarFallback className="text-xs">{post.autorNombre?.substring(0,1) || "P"}</AvatarFallback>
+                    <AvatarImage src={post.autorFoto || `https://placehold.co/40x40.png?text=${post.autorNombre?.substring(0,1) || 'U'}`} data-ai-hint="user avatar small"/>
+                    <AvatarFallback className="text-xs">{post.autorNombre?.substring(0,1) || "U"}</AvatarFallback>
                   </Avatar>
-                  <span>{post.autorNombre || "Piloto Anónimo"}</span>
+                  <span>{post.autorNombre || "Usuario Anónimo"}</span>
                   <span>&bull;</span>
                   <span>{formatDate(post.fechaCreacion)}</span>
                 </CardDescription>
@@ -337,8 +337,8 @@ function ForumCategoryContent({
           </CardContent>
           <CardFooter className="text-sm text-muted-foreground flex justify-between items-center pt-4 mt-2 border-t border-border/30">
             <div className="flex items-center gap-2 hover:text-primary transition-colors">
-                <MessageSquare className="h-4 w-4"/> 
-                <span>{post.commentsCount || 0} holorespuestas</span>
+                <MessageSquare className="h-4 w-4"/>
+                <span>{post.commentsCount || 0} respuestas</span>
             </div>
             <div className="flex items-center gap-1">
                 <Button variant="ghost" size="sm" onClick={() => onReact(post.id, 'likes')} className="hover:bg-accent hover:text-primary hover:scale-110 transition-all">
@@ -353,9 +353,9 @@ function ForumCategoryContent({
       )) : (
         <Card className="shadow-md bg-card border-dashed border-border/50">
           <CardContent className="p-10 text-center text-muted-foreground">
-            <Image src="https://placehold.co/300x200.png" alt="Sin transmisiones" width={150} height={100} className="mx-auto mb-6 rounded-lg opacity-50" data-ai-hint="empty void dark"/>
-            <p className="text-lg">Silencio en el canal <span className="font-semibold text-primary">{categoryName}</span>.</p>
-            <p className="mt-1">¡Sé el primero en emitir una holo-transmisión!</p>
+            <Image src="https://placehold.co/300x200.png" alt="Sin publicaciones" width={150} height={100} className="mx-auto mb-6 rounded-lg opacity-50" data-ai-hint="empty void dark"/>
+            <p className="text-lg">No hay publicaciones en la categoría <span className="font-semibold text-primary">{categoryName}</span>.</p>
+            <p className="mt-1">¡Sé el primero en crear una publicación!</p>
           </CardContent>
         </Card>
       )}

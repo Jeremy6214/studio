@@ -12,7 +12,7 @@ export default function AiAssistantPage() {
           Asistente IA Nova
         </h1>
         <p className="text-muted-foreground text-lg mt-2">
-          Tu copiloto en la odisea del conocimiento. Nova está aquí para ayudarte.
+          Tu copiloto en la aventura del conocimiento. Nova está aquí para ayudarte.
         </p>
       </header>
       <div className="flex-grow min-h-0"> {/* Ensure this div takes remaining height */}

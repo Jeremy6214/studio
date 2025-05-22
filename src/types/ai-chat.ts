@@ -9,6 +9,7 @@ export interface ChatMessage {
   imageQuery?: string;
   suggestions?: string[];
   isLoading?: boolean;
+  isError?: boolean; // Added to mark error messages from AI
   timestamp: number;
 }
 

@@ -46,28 +46,28 @@ export function ChatList({
 
   const T = {
     es: {
-      newChat: "Nueva Sincronización",
+      newChat: "Nuevo Chat",
       chat: "Chat",
-      deleteChatTitle: "¿Desincronizar esta hebra de datos?",
+      deleteChatTitle: "¿Eliminar esta conversación?",
       deleteChatDescription: "Esta acción no se puede deshacer. Esto eliminará permanentemente la conversación con Nova.",
       cancel: "Cancelar",
-      delete: "Desincronizar",
-      rename: "Renombrar Hebra",
-      confirmRename: "Confirmar Renombre",
-      cancelRename: "Cancelar Renombre",
-      editNamePlaceholder: "Nuevo alias de hebra...",
+      delete: "Eliminar",
+      rename: "Renombrar Chat",
+      confirmRename: "Confirmar Nombre",
+      cancelRename: "Cancelar Nombre",
+      editNamePlaceholder: "Nuevo nombre del chat...",
     },
     en: {
-      newChat: "New Sync",
+      newChat: "New Chat",
       chat: "Chat",
-      deleteChatTitle: "Desync this data stream?",
+      deleteChatTitle: "Delete this conversation?",
       deleteChatDescription: "This action cannot be undone. This will permanently delete the conversation with Nova.",
       cancel: "Cancel",
-      delete: "Desync",
-      rename: "Rename Stream",
+      delete: "Delete",
+      rename: "Rename Chat",
       confirmRename: "Confirm Rename",
       cancelRename: "Cancel Rename",
-      editNamePlaceholder: "New stream alias...",
+      editNamePlaceholder: "New chat name...",
     }
   }[currentLanguage];
 
@@ -88,9 +88,9 @@ export function ChatList({
     <TooltipProvider delayDuration={150}>
       <div className="flex flex-col h-full text-sidebar-foreground bg-sidebar">
         <div className="p-3 border-b border-sidebar-border">
-          <Button 
-            onClick={onCreateNewChat} 
-            className="w-full hover:scale-105 hover:brightness-125 transition-transform duration-200 techno-glow-primary shadow-md" 
+          <Button
+            onClick={onCreateNewChat}
+            className="w-full hover:scale-105 hover:brightness-125 transition-transform duration-200 techno-glow-primary shadow-md"
             variant="default"
           >
             <PlusCircle className="mr-2 h-5 w-5" />
@@ -102,7 +102,7 @@ export function ChatList({
             {sessions.length === 0 && (
               <div className="text-center py-10 text-muted-foreground">
                 <Sparkles className="mx-auto h-12 w-12 opacity-50 mb-3" />
-                <p className="text-sm">{currentLanguage === 'es' ? 'Inicia tu primera sincronización con Nova.' : 'Start your first sync with Nova.'}</p>
+                <p className="text-sm">{currentLanguage === 'es' ? 'Inicia tu primer chat con Nova.' : 'Start your first chat with Nova.'}</p>
               </div>
             )}
             {sessions.map((session) => (
@@ -137,7 +137,7 @@ export function ChatList({
                   </div>
                 ) : (
                   <Button
-                    variant={'ghost'} 
+                    variant={'ghost'}
                     className={cn(
                       'w-full justify-start items-center text-sm h-auto py-2.5 px-3 text-left text-sidebar-foreground hover:bg-sidebar-accent hover:text-primary rounded-lg transition-all duration-150 ease-in-out',
                       activeSessionId === session.id && 'bg-sidebar-primary text-sidebar-primary-foreground font-semibold techno-glow-primary shadow-inner'
@@ -175,7 +175,7 @@ export function ChatList({
                           <AlertDialogDescription className="text-muted-foreground">{T.deleteChatDescription}</AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel className="hover:scale-105 transition-transform">Cancelar</AlertDialogCancel>
+                          <AlertDialogCancel className="hover:scale-105 transition-transform">{T.cancel}</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => onDeleteSession(session.id)}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:scale-105 transition-transform"

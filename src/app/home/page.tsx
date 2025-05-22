@@ -11,9 +11,9 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <header className="pb-4 border-b border-border">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">Panel de Control de DarkAISchool</h1>
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">Panel de Control de EduConnect</h1>
         <p className="text-muted-foreground text-lg mt-2">
-          ¡Bienvenido, piloto! Aquí tienes un resumen de tu incursión en el conocimiento.
+          ¡Bienvenido! Aquí tienes un resumen de tu actividad y progreso.
         </p>
       </header>
 
@@ -28,11 +28,11 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">Aún no hay actividad reciente para mostrar.</p>
-            <Image 
-              src="https://placehold.co/600x400.png" 
-              alt="Gráfico abstracto de actividad" 
-              width={600} 
-              height={400} 
+            <Image
+              src="https://placehold.co/600x400.png"
+              alt="Gráfico abstracto de actividad"
+              width={600}
+              height={400}
               className="mt-4 rounded-lg opacity-75 group-hover:opacity-100 transition-opacity"
               data-ai-hint="abstract graph dark"
             />
@@ -49,17 +49,17 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-6">
              <p className="text-sm text-muted-foreground">El seguimiento del progreso aún no está implementado.</p>
-             <Image 
-              src="https://placehold.co/600x400.png" 
-              alt="Gráfico de barras de progreso" 
-              width={600} 
-              height={400} 
+             <Image
+              src="https://placehold.co/600x400.png"
+              alt="Gráfico de barras de progreso"
+              width={600}
+              height={400}
               className="mt-4 rounded-lg opacity-75 group-hover:opacity-100 transition-opacity"
               data-ai-hint="chart data dark"
             />
           </CardContent>
         </Card>
-        
+
         <Card className="shadow-lg hover:shadow-primary/30 transition-all duration-300 bg-card hover:scale-105 group row-span-1 md:row-span-2 flex flex-col">
           <CardHeader className="border-b border-border/50 pb-4">
             <CardTitle className="flex items-center text-xl text-foreground group-hover:text-primary transition-colors">
@@ -69,15 +69,15 @@ export default function DashboardPage() {
             <CardDescription className="text-sm">Únete a la conversación.</CardDescription>
           </CardHeader>
           <CardContent className="pt-6 flex flex-col items-center text-center flex-grow justify-center">
-            <Image 
-              src="https://placehold.co/300x200.png" 
-              alt="Icono de comunidad o foro" 
-              width={300} 
-              height={200} 
+            <Image
+              src="https://placehold.co/300x200.png"
+              alt="Icono de comunidad o foro"
+              width={300}
+              height={200}
               className="mb-4 rounded-lg shadow-sm group-hover:shadow-lg transition-shadow"
               data-ai-hint="community discussion dark"
             />
-            <p className="text-sm text-muted-foreground mb-6">Interactúa con la comunidad, haz preguntas y comparte tu conocimiento arcano.</p>
+            <p className="text-sm text-muted-foreground mb-6">Interactúa con la comunidad, haz preguntas y comparte tu conocimiento.</p>
             <Link href="/forums" passHref>
               <Button variant="default" size="lg" className="hover:scale-105 hover:brightness-125 transition-transform techno-glow-primary">Ir a los Foros</Button>
             </Link>
@@ -93,11 +93,11 @@ export default function DashboardPage() {
             <CardDescription className="text-sm">Tu guía personal en el aprendizaje.</CardDescription>
           </CardHeader>
           <CardContent className="pt-6 flex flex-col sm:flex-row items-center gap-6">
-            <Image 
-              src="https://placehold.co/200x200.png" 
-              alt="Nova AI Assistant" 
-              width={150} 
-              height={150} 
+            <Image
+              src="https://placehold.co/200x200.png"
+              alt="Nova AI Assistant"
+              width={150}
+              height={150}
               className="rounded-full shadow-md border-2 border-primary group-hover:techno-glow-primary"
               data-ai-hint="robot mascot cute"
             />
@@ -124,7 +124,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent className="pt-6">
           <p className="text-muted-foreground">
-            Aún no hay grimorios destacados. Consulta el <Link href="/study-materials" className="text-primary hover:text-primary/80 hover:underline">Repositorio de Materiales de Estudio</Link> para todos los recursos.
+            Aún no hay materiales destacados. Consulta el <Link href="/study-materials" className="text-primary hover:text-primary/80 hover:underline">Repositorio de Materiales de Estudio</Link> para todos los recursos.
           </p>
         </CardContent>
       </Card>

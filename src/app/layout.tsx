@@ -12,8 +12,8 @@ const figtree = Figtree({
 });
 
 export const metadata: Metadata = {
-  title: 'DarkAISchool',
-  description: 'Forja tu camino con las herramientas de DarkAISchool para acólitos y gremios.',
+  title: 'EduConnect',
+  description: 'Plataforma educativa para estudiantes y educadores.',
 };
 
 export default function RootLayout({

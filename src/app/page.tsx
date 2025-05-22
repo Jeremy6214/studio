@@ -1,7 +1,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Rocket, BookOpen, BrainCircuit } from "lucide-react"; // Added BrainCircuit here
+import { Rocket, BookOpen, BrainCircuit } from "lucide-react";
 
 export default function RootPage() {
   return (
@@ -10,11 +10,11 @@ export default function RootPage() {
         <Rocket className="h-24 w-24 text-primary techno-glow-primary animate-pulse" />
       </div>
       <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 text-foreground tracking-tight">
-        Bienvenido a <span className="text-primary">DarkAISchool</span>
+        Bienvenido a <span className="text-primary">EduConnect</span>
       </h1>
       <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl">
-        Tu portal hacia el conocimiento arcano y la maestría tecnológica. 
-        Emprende tu odisea de aprendizaje con Nova y la legión.
+        Tu plataforma para el aprendizaje y la colaboración.
+        Comienza tu experiencia educativa con Nova y la comunidad.
       </p>
       <div className="flex flex-col sm:flex-row gap-4">
         <Link href="/home" passHref>
@@ -31,7 +31,7 @@ export default function RootPage() {
         </Link>
       </div>
       <p className="mt-12 text-xs text-muted-foreground/70">
-        DarkAISchool &copy; {new Date().getFullYear()} - Forjando el futuro del conocimiento.
+        EduConnect &copy; {new Date().getFullYear()} - Fomentando el futuro del conocimiento.
       </p>
     </div>
   );
