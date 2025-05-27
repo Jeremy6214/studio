@@ -1,0 +1,164 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light Theme (Updated with new vibrant accents) */
+    --background: 220 20% 98%; /* Very light gray, almost white */
+    --foreground: 240 10% 3.9%; /* Dark, near black for text */
+
+    --card: 220 20% 100%; /* White cards */
+    --card-foreground: 240 10% 3.9%;
+
+    --popover: 220 20% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    --primary: 210 100% 50%; /* Electric Blue */
+    --primary-foreground: 0 0% 100%; /* White text on blue for contrast */
+
+    --secondary: 270 90% 65%; /* Vibrant Purple */
+    --secondary-foreground: 0 0% 100%; /* White text on purple */
+
+    --muted: 220 15% 96.1%; /* Lighter gray */
+    --muted-foreground: 240 5% 45.1%; /* Mid gray for muted text */
+
+    --accent: 220 14.3% 93.9%; /* Light gray for hover states */
+    --accent-foreground: 240 10% 3.9%;
+
+    --destructive: 0 72.2% 50.6%; /* Adjusted Red */
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 13% 91%; /* Light border */
+    
+    --input-bg: 220 13% 94%; /* Slightly off-white for inputs */
+    --input-border: 220 13% 86%;
+    --input: 220 13% 86%; 
+
+    --ring: 210 100% 50%; /* Electric Blue for focus rings */
+
+    --radius: 0.75rem; /* XL rounded corners */
+
+    /* Sidebar specific colors (Light Theme) */
+    --sidebar-background: 220 14% 97%; 
+    --sidebar-foreground: 240 10% 3.9%; 
+    --sidebar-primary: hsl(var(--primary)); 
+    --sidebar-primary-foreground: hsl(var(--primary-foreground));
+    --sidebar-accent: 220 15% 93%; 
+    --sidebar-accent-foreground: hsl(var(--primary)); 
+    --sidebar-border: 220 13% 88%; 
+    --sidebar-ring: hsl(var(--primary));
+
+    --chart-1: hsl(var(--primary));
+    --chart-2: 173 58% 39%;
+    --chart-3: hsl(var(--secondary)); 
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+
+    /* Techno-fantasy Glow - Light mode (more subtle) */
+    --techno-glow-primary: 0 0px 10px -1px hsla(var(--primary), 0.3);
+    --techno-glow-secondary: 0 0px 10px -1px hsla(var(--secondary), 0.3);
+    --techno-glow-destructive: 0 0px 10px -1px hsla(var(--destructive), 0.3);
+
+  }
+
+  .dark {
+    /* Dark Theme (Electric Blue & Purple Accents) */
+    --background: 220 15% 10%; /* #14171a */
+    --foreground: 220 20% 96.5%; 
+    
+    --card: 220 15% 13%; /* #1a1d21 - Slightly lighter than background */
+    --card-foreground: 220 20% 96.5%;
+
+    --popover: 220 15% 11%; 
+    --popover-foreground: 220 20% 96.5%;
+
+    --primary: 210 100% 60%; 
+    --primary-foreground: 210 100% 15%; 
+
+    --secondary: 270 100% 70%; 
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 220 15% 22%; 
+    --muted-foreground: 220 15% 65%; 
+
+    --accent: 220 15% 18%; 
+    --accent-foreground: hsl(var(--primary)); 
+
+    --destructive: 0 70% 55%; 
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 15% 20%; /* Subtle border */
+    
+    --input-bg: 220 15% 16%; /* Darker input bg */
+    --input-border: 220 15% 25%; /* Slightly more visible border */
+    --input: 220 15% 25%; 
+
+    --ring: hsl(var(--primary));
+
+    /* Sidebar specific colors (Dark Theme) */
+    --sidebar-background: 220 12% 11%; /* Slightly darker than main background */
+    --sidebar-foreground: 220 20% 90%;
+    --sidebar-primary: hsl(var(--primary)); 
+    --sidebar-primary-foreground: hsl(var(--primary-foreground));
+    --sidebar-accent: 220 15% 16%;  
+    --sidebar-accent-foreground: hsl(var(--primary)); 
+    --sidebar-border: 220 15% 15%; 
+    --sidebar-ring: hsl(var(--primary));
+
+    --chart-1: hsl(var(--primary));
+    --chart-2: hsl(var(--secondary)); 
+    --chart-3: 190 100% 60%; 
+    --chart-4: 50 100% 60%; 
+    --chart-5: 120 70% 60%; 
+
+    /* Techno-fantasy Glow - Dark mode */
+    --techno-glow-primary: 0 0px 18px -2px hsla(var(--primary), 0.6), 0 0px 8px -2px hsla(var(--primary), 0.4) inset;
+    --techno-glow-secondary: 0 0px 18px -2px hsla(var(--secondary), 0.6), 0 0px 8px -2px hsla(var(--secondary), 0.4) inset;
+    --techno-glow-destructive: 0 0px 18px -2px hsla(var(--destructive), 0.5), 0 0px 8px -2px hsla(var(--destructive), 0.3) inset;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border; 
+  }
+  body {
+    @apply bg-background text-foreground font-sans; 
+    scroll-behavior: smooth;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-sans tracking-tight; 
+  }
+}
+
+/* Custom utility for techno-glow effect */
+.techno-glow-primary {
+  box-shadow: var(--techno-glow-primary);
+}
+.techno-glow-secondary {
+  box-shadow: var(--techno-glow-secondary);
+}
+.techno-glow-destructive {
+  box-shadow: var(--techno-glow-destructive);
+}
+
+
+/* Typing dots animation for AI assistant */
+.typing-dots span {
+  @apply inline-block w-2 h-2 bg-current rounded-full opacity-50;
+  animation: typing-blink 1.4s infinite both;
+}
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes typing-blink {
+  0% { opacity: 0.2; }
+  20% { opacity: 1; }
+  100% { opacity: 0.2; }
+}
+
