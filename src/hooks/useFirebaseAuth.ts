@@ -3,10 +3,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
-import { db, auth as firebaseAuth } from '@/lib/firebase';
+import { db } from '@/lib/firebase'; // firebaseAuth (actual Auth instance) is no longer imported
 import type { UserProfile } from "@/types/firestore";
-import type { User as FirebaseUser } from 'firebase/auth';
-import { signOut as firebaseSignOut } from 'firebase/auth'; 
+// FirebaseUser and firebaseSignOut are no longer imported
 import { toast } from '@/hooks/use-toast';
 
 export interface User {
@@ -42,43 +41,48 @@ const initialSimulatedUserProfileObject: UserProfile = {
   nombre: SIMULATED_USER_DISPLAY_NAME,
   correo: SIMULATED_USER_EMAIL,
   fotoPerfil: SIMULATED_USER_PHOTO_FALLBACK,
-  tema: "system", // Default theme
-  idioma: "es",   // Default language
+  tema: "system",
+  idioma: "es",
   isAdmin: false,
 };
 
 export function useFirebaseAuth(): AuthState {
-  const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfileStateInternal] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<User | null>(null); // Initialize as null
+  const [userProfile, setUserProfileStateInternal] = useState<UserProfile | null>(null); // Initialize as null
   const [authLoading, setAuthLoading] = useState(true); 
   const [userProfileLoading, setUserProfileLoading] = useState(true); 
   const [currentLanguage, setCurrentLanguage] = useState<'es' | 'en'>('es');
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const setUserProfileState = useCallback((profile: UserProfile | null) => {
     setUserProfileStateInternal(profile);
     if (profile) {
-      setUser(prevUser => ({
-        ...(prevUser || initialSimulatedUserObject),
+      // Update the simulated user object based on the profile
+      setUser({
         uid: profile.uid,
-        displayName: profile.nombre || prevUser?.displayName || SIMULATED_USER_DISPLAY_NAME,
-        email: profile.correo || prevUser?.email || SIMULATED_USER_EMAIL,
-        photoURL: profile.fotoPerfil || prevUser?.photoURL || SIMULATED_USER_PHOTO_FALLBACK,
-      }));
+        displayName: profile.nombre || SIMULATED_USER_DISPLAY_NAME,
+        email: profile.correo || SIMULATED_USER_EMAIL,
+        photoURL: profile.fotoPerfil || SIMULATED_USER_PHOTO_FALLBACK,
+      });
       setCurrentLanguage(profile.idioma || 'es');
     } else {
-      setUser(initialSimulatedUserObject); 
+      // Fallback to initial simulated user if profile is null
+      setUser(initialSimulatedUserObject);
       setCurrentLanguage('es');
     }
   }, []);
 
-
   useEffect(() => {
-    setAuthLoading(true);
-    setUserProfileLoading(true);
-    
-    // Simulate user being immediately "authenticated"
+    if (!hasMounted) return; // Only run on client
+
+    // Simulate user being "authenticated" immediately on client mount
     setUser(initialSimulatedUserObject);
     setAuthLoading(false); 
+    setUserProfileLoading(true); // Start loading profile from Firestore
 
     const profileDocRef = doc(db, "users", SIMULATED_USER_ID);
     
@@ -88,13 +92,19 @@ export function useFirebaseAuth(): AuthState {
           const profileData = docSnap.data() as UserProfile;
           setUserProfileState(profileData);
         } else {
+          // Profile doesn't exist, create it with defaults
           try {
             await setDoc(profileDocRef, initialSimulatedUserProfileObject);
             setUserProfileState(initialSimulatedUserProfileObject);
+            toast({ title: "Perfil Creado", description: "Se ha creado un perfil de prueba en Firestore."});
           } catch (error) {
             console.error("Error creating initial user profile in Firestore:", error);
-            toast({ title: "Error de Perfil", description: "No se pudo crear el perfil de usuario inicial.", variant: "destructive"});
-            setUserProfileState(initialSimulatedUserProfileObject); 
+            if (error instanceof Error && error.message.includes('offline')) {
+              toast({ title: "Modo Offline", description: "No se pudo crear el perfil inicial. Se usarán valores por defecto.", variant: "default"});
+            } else {
+              toast({ title: "Error de Perfil", description: "No se pudo crear el perfil de usuario inicial.", variant: "destructive"});
+            }
+            setUserProfileState(initialSimulatedUserProfileObject); // Fallback to local default
           }
         }
         setUserProfileLoading(false);
@@ -102,18 +112,17 @@ export function useFirebaseAuth(): AuthState {
       (error) => {
         console.error("Error with profile snapshot from Firestore:", error);
         if (error.message.includes("offline")) {
-             toast({ title: "Modo Offline", description: "No se pudo obtener el perfil del usuario. Se usará el perfil local.", variant: "default"});
+             toast({ title: "Modo Offline", description: "No se pudo obtener el perfil del usuario. Se usarán valores por defecto.", variant: "default"});
         } else {
             toast({ title: "Error de Conexión", description: "No se pudo obtener el perfil del usuario. Verifica tu conexión.", variant: "destructive"});
         }
-        // Fallback to local default if Firestore is inaccessible
-        setUserProfileState(initialSimulatedUserProfileObject);
+        setUserProfileState(initialSimulatedUserProfileObject); // Fallback to local default
         setUserProfileLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [setUserProfileState]);
+  }, [hasMounted, setUserProfileState]); // Added setUserProfileState to dependencies
 
   return {
     user,

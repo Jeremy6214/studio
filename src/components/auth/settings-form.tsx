@@ -22,11 +22,9 @@ import { useToast } from "@/hooks/use-toast";
 import type { UserProfile } from "@/types/firestore";
 import { useFirebaseAuth } from "@/hooks/useFirebaseAuth";
 import { useEffect } from "react";
-import { doc, setDoc, updateDoc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase"; // Asegúrate que db esté exportado
-// No se usa sendPasswordResetEmail ni auth directamente aquí, se simula
-// import { sendPasswordResetEmail, updateProfile as updateAuthProfile } from "firebase/auth";
-// import { auth } from "@/lib/firebase";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+// Firebase Auth specific imports like sendPasswordResetEmail are no longer needed.
 
 const settingsFormSchema = z.object({
   nombre: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
@@ -40,7 +38,7 @@ const settingsFormSchema = z.object({
 type SettingsFormValues = z.infer<typeof settingsFormSchema>;
 
 export function SettingsForm() {
-  const { user, userProfile, loading, setUserProfileState } = useFirebaseAuth();
+  const { user, userProfile, authLoading, userProfileLoading, setUserProfileState } = useFirebaseAuth(); // authLoading might not be as relevant now
   const { toast } = useToast();
 
   const form = useForm<SettingsFormValues>({
@@ -65,109 +63,88 @@ export function SettingsForm() {
         tema: userProfile.tema || "system",
         isAdmin: userProfile.isAdmin || false,
       });
-    } else if (user && !loading) { // Si no hay perfil pero sí usuario, inicializar con datos del usuario
+    } else if (user && !userProfileLoading && !authLoading) { // If no profile but user exists (simulated)
         form.reset({
             nombre: user.displayName || "",
             correo: user.email || "",
             fotoPerfil: user.photoURL || "",
-            idioma: "es",
-            tema: "system",
-            isAdmin: false,
+            idioma: "es", // Default if profile is missing
+            tema: "system", // Default if profile is missing
+            isAdmin: false, // Default if profile is missing
         });
     }
-  }, [userProfile, user, form, loading]);
+  }, [userProfile, user, form, userProfileLoading, authLoading]);
 
   async function onSubmit(data: SettingsFormValues) {
-    if (!user || !user.uid) {
-      toast({ title: "Error", description: "No se pudo identificar al usuario.", variant: "destructive" });
+    if (!user || !user.uid) { // user.uid is now always "uid_test"
+      toast({ title: "Error", description: "No se pudo identificar al usuario simulado.", variant: "destructive" });
       return;
     }
 
     try {
-      const userDocRef = doc(db, "users", user.uid);
+      const userDocRef = doc(db, "users", user.uid); // user.uid will be "uid_test"
       
       const updatedProfileData: Partial<UserProfile> = {
+        uid: user.uid, // Ensure UID is part of the data being set
         nombre: data.nombre,
-        // correo: data.correo, // No se actualiza el correo directamente aquí para evitar complejidad con verificación de Firebase Auth
+        correo: user.email, // Keep the simulated email or the one from userProfile
         fotoPerfil: data.fotoPerfil,
         idioma: data.idioma,
         tema: data.tema,
         isAdmin: data.isAdmin,
       };
 
-      // Actualizar o crear el documento en Firestore
       await setDoc(userDocRef, updatedProfileData, { merge: true });
       
-      // Actualizar estado local
-      if (userProfile) {
-        setUserProfileState({ ...userProfile, ...updatedProfileData } as UserProfile);
-      } else {
-         // If userProfile was null, construct a new one
-        const baseProfile = await getDoc(userDocRef);
-        if(baseProfile.exists()){
-            setUserProfileState(baseProfile.data() as UserProfile);
-        }
-      }
+      setUserProfileState({ ...userProfile, ...updatedProfileData } as UserProfile);
 
 
-      // Simular actualización de perfil de Firebase Auth (nombre, foto)
-      // En una app real, esto sería:
-      // if (auth.currentUser) {
-      //   await updateAuthProfile(auth.currentUser, { displayName: data.nombre, photoURL: data.fotoPerfil });
-      // }
-      // Por ahora, ya se actualiza en el hook useFirebaseAuth al leer de Firestore.
-
-      // Aplicar tema e idioma inmediatamente si es necesario
       if (data.tema) {
-        document.documentElement.classList.remove("light", "dark");
-        if (data.tema === "dark") {
-          document.documentElement.classList.add("dark");
-        } else if (data.tema === "light") {
-          document.documentElement.classList.add("light");
-        } else { // system
-          if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
+        if (typeof window !== 'undefined') {
+            document.documentElement.classList.remove("light", "dark");
+            if (data.tema === "dark") {
+            document.documentElement.classList.add("dark");
+            } else if (data.tema === "light") {
+            document.documentElement.classList.add("light");
+            } else { 
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            }
+            localStorage.setItem("theme", data.tema);
         }
-        localStorage.setItem("theme", data.tema);
       }
       if (data.idioma) {
-        localStorage.setItem("language", data.idioma);
-        // Aquí podrías llamar a una función para recargar/actualizar textos si tienes i18n
+        if (typeof window !== 'undefined') {
+            localStorage.setItem("language", data.idioma);
+        }
       }
 
       toast({ title: "Configuración Guardada", description: "Tus preferencias han sido actualizadas." });
     } catch (error) {
       console.error("Error updating profile:", error);
-      toast({ title: "Error", description: "No se pudo guardar la configuración.", variant: "destructive" });
+      if (error instanceof Error && error.message.includes('offline')) {
+        toast({ title: "Modo Offline", description: "Cambios guardados localmente. Se sincronizarán con la nube al reconectar.", variant: "default"});
+      } else {
+        toast({ title: "Error", description: "No se pudo guardar la configuración.", variant: "destructive" });
+      }
     }
   }
 
-  const handlePasswordReset = async () => {
-    if (user && user.email) {
-      // Simulación de envío de correo. En una app real:
-      // try {
-      //   await sendPasswordResetEmail(auth, user.email);
-      //   toast({ title: "Correo Enviado", description: "Se ha enviado un enlace para restablecer tu contraseña a tu correo." });
-      // } catch (error) {
-      //   console.error("Error sending password reset email:", error);
-      //   toast({ title: "Error", description: "No se pudo enviar el correo de restablecimiento.", variant: "destructive" });
-      // }
-      toast({ title: "Restablecimiento de Contraseña (Simulado)", description: `Se simula el envío de un correo a ${user.email}.` });
-    } else {
-      toast({ title: "Error", description: "No se encontró un correo para el usuario.", variant: "destructive" });
-    }
+  const handlePasswordReset = () => {
+    // Since Firebase Auth is removed, this is purely simulated.
+    toast({ title: "Cambio de Contraseña (Simulado)", description: "En una aplicación real, aquí se iniciaría el proceso de cambio de contraseña." });
   };
 
-  if (loading) {
+  if (authLoading || userProfileLoading) {
     return <p>Cargando configuración...</p>;
   }
 
   if (!user) {
-    // Esto no debería pasar con el hook simulado, pero es buena práctica
-    return <p>Por favor, inicia sesión para ver la configuración.</p>; 
+    // This case should ideally not be reached with the simulated user
+    return <p>Error al cargar la información del usuario simulado.</p>; 
   }
 
   return (
@@ -195,7 +172,7 @@ export function SettingsForm() {
               <FormControl>
                 <Input placeholder="tu@correo.com" {...field} disabled />
               </FormControl>
-              <FormDescription>El correo electrónico no se puede cambiar desde aquí.</FormDescription>
+              <FormDescription>El correo electrónico es parte del usuario simulado y no se puede cambiar.</FormDescription>
               <FormMessage />
             </FormItem>
           )}
