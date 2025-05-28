@@ -21,15 +21,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  async redirects() {
-    return [
-      {
-        source: '/page',
-        destination: '/home',
-        permanent: false, // Set to true if this is a permanent redirect
-      },
-    ];
-  },
+  // Redirects, rewrites, and headers are not supported with static export.
+  // If you need redirects, they should be handled by your static hosting provider
+  // or by using client-side navigation/meta refresh tags if appropriate.
 };
 
 export default nextConfig;
