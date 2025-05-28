@@ -8,8 +8,8 @@ import { ChatView } from './chat-view';
 import { useChatManager } from '@/hooks/useChatManager';
 import { useFirebaseAuth } from '@/hooks/useFirebaseAuth'; 
 import { Skeleton } from '../ui/skeleton';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+// import { format } from 'date-fns'; // No longer directly used here
+// import { es } from 'date-fns/locale'; // No longer directly used here
 
 
 export function AiAssistantLayout() {
@@ -26,14 +26,14 @@ export function AiAssistantLayout() {
   useEffect(() => {
     // This effect runs once on mount OR if loading state changes from true to false,
     // or if appLanguage (from Firebase auth/profile) changes
-    if (!authLoading && !userProfileLoading) { 
+    if (hasMounted && !authLoading && !userProfileLoading) { 
       const determinedLang = appLanguage || (typeof window !== 'undefined' ? localStorage.getItem('language') as 'es' | 'en' : null) || 'es';
       if (determinedLang !== initialChatLanguage) {
         setInitialChatLanguage(determinedLang);
         setManagerKey(Date.now()); // Force re-mount of useChatManager if language changes
       }
     }
-  }, [appLanguage, authLoading, userProfileLoading, initialChatLanguage]);
+  }, [appLanguage, authLoading, userProfileLoading, initialChatLanguage, hasMounted]);
 
 
   const {
@@ -48,7 +48,7 @@ export function AiAssistantLayout() {
     updateMessageInSession,
     setCurrentLanguage: setChatManagerLanguage, 
     renameChatSession,
-    getWelcomeMessage, // Expose for direct use if needed
+    getWelcomeMessage,
   } = useChatManager(initialChatLanguage, managerKey);
 
   // Effect to sync app language to chat manager language if they diverge
@@ -117,4 +117,3 @@ export function AiAssistantLayout() {
     </div>
   );
 }
-

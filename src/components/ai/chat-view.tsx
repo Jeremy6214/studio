@@ -1,3 +1,4 @@
+
 // src/components/ai/chat-view.tsx
 "use client";
 
@@ -6,7 +7,7 @@ import type { ChatMessage } from '@/types/ai-chat';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, UserRound, Bot, AlertTriangle, MessageSquareDashed } from 'lucide-react'; // Changed SendPlane to Send
+import { Send, UserRound, Bot, AlertTriangle, MessageSquareDashed, MessageSquareText } from 'lucide-react';
 import NextImage from 'next/image';
 import { askStudyAssistant, type StudyAssistantInput, type StudyAssistantOutput } from '@/ai/flows/study-assistant-flow';
 import { useToast } from '@/hooks/use-toast';
@@ -77,7 +78,8 @@ const ChatMessageDisplay = React.memo(function ChatMessageDisplayComponent({
                   height={200}
                   className="rounded-md object-contain max-h-[350px] w-auto shadow-sm"
                   data-ai-hint={msg.imageQuery || "abstract ai illustration"}
-                  priority={false} 
+                  priority={false}
+                  unoptimized // Important for static export
                 />
               </div>
             )}
@@ -141,7 +143,7 @@ export function ChatView({
       noActiveChat: "Selecciona o crea un chat para comenzar.",
       noMessages: "Comienza la conversación con Nova.",
       user: "Tú",
-      nova: "Nova",
+      nova: "Nova (Simulado)", // Indicate simulation if AI calls are not real
     },
     en: {
       inputPlaceholder: "Ask Nova...",
@@ -154,7 +156,7 @@ export function ChatView({
       noActiveChat: "Select or create a chat to start.",
       noMessages: "Start the conversation with Nova.",
       user: "You",
-      nova: "Nova",
+      nova: "Nova (Simulated)", // Indicate simulation
     }
   }[currentLanguage]), [currentLanguage]);
 
@@ -179,7 +181,7 @@ export function ChatView({
     if (!currentQuery || isResponding) return;
 
     const userMessageId = onSendMessage(activeSessionId, { type: 'user', text: currentQuery });
-    setInputValue(''); // Clear input after setting it for the user message
+    setInputValue(''); 
     setIsResponding(true);
 
     const assistantLoadingMessageId = onSendMessage(activeSessionId, { type: 'assistant', isLoading: true });
@@ -202,6 +204,7 @@ export function ChatView({
         language: currentLanguage,
         generateImageExplicitly,
       };
+      // askStudyAssistant is now a client-side function
       const assistantResponse: StudyAssistantOutput = await askStudyAssistant(assistantInput);
 
       onUpdateMessage(activeSessionId, assistantLoadingMessageId, {
@@ -310,7 +313,7 @@ export function ChatView({
             aria-label={T.sendMessage}
             className="h-12 w-12 rounded-lg shadow-md hover:scale-105 hover:brightness-125 transition-transform techno-glow-primary"
           >
-            <Send className="h-5 w-5" /> {/* Changed from SendPlane */}
+            <Send className="h-5 w-5" />
           </Button>
         </form>
       </div>

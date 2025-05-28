@@ -1,164 +1,126 @@
 
-'use server';
+// No 'use server' for static export
 /**
- * @fileOverview AI Study Assistant "Nova" for EduConnect, using Genkit with Google AI (Gemini).
+ * @fileOverview A SIMULATED AI Study Assistant "Nova" for DarkAIschool.
+ * This version provides predefined responses and does NOT use Genkit or external AI models.
  *
- * - askStudyAssistant - Handles user queries.
+ * - askStudyAssistant - Handles user queries with simulated logic.
  * - StudyAssistantInput - Input type for the function.
  * - StudyAssistantOutput - Output type for the function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+// Zod and Genkit 'ai' are removed as we are not using them for a static build.
 
-const StudyAssistantInputSchema = z.object({
-  query: z.string().describe('La consulta del usuario.'),
-  language: z.enum(['es', 'en']).default('es').describe('El idioma actual de la interfaz o el idioma preferido para la respuesta.'),
-  generateImageExplicitly: z.boolean().optional().default(false).describe('Indica si el usuario solicitó explícitamente una imagen o si la consulta lo sugiere fuertemente.'),
-});
-export type StudyAssistantInput = z.infer<typeof StudyAssistantInputSchema>;
+export interface StudyAssistantInput {
+  query: string;
+  language: 'es' | 'en';
+  generateImageExplicitly?: boolean;
+}
 
-const StudyAssistantOutputSchema = z.object({
-  mainResponse: z.string().describe('La respuesta principal del asistente de estudio Nova.'),
-  generatedImageUrl: z.string().optional().describe('URL de la imagen generada, si se solicitó y se generó exitosamente.'),
-  imageQuerySuggestion: z.string().optional().describe('La consulta (en inglés) utilizada o sugerida para la generación de la imagen.'),
-  followUpSuggestions: z.array(z.string()).optional().describe('Sugerencias para preguntas de seguimiento que fomenten una mayor exploración.'),
-  isError: z.boolean().optional().default(false).describe('Indica si la respuesta es un mensaje de error.')
-});
-export type StudyAssistantOutput = z.infer<typeof StudyAssistantOutputSchema>;
+export interface StudyAssistantOutput {
+  mainResponse: string;
+  generatedImageUrl?: string;
+  imageQuerySuggestion?: string;
+  followUpSuggestions?: string[];
+  isError?: boolean;
+}
 
+const SIMULATED_RESPONSE_DELAY_MS = 500; // Simulate network delay
 
-const studyAssistantPrompt = ai.definePrompt({
-  name: 'studyAssistantNovaEduConnect', // Updated name for EduConnect
-  model: 'googleai/gemini-1.5-flash-latest',
-  input: { schema: StudyAssistantInputSchema },
-  output: { schema: StudyAssistantOutputSchema.omit({ isError: true }) },
-  prompt: `Eres 'Nova', la Asistente de Estudio IA de 'EduConnect'. Tu objetivo es ayudar a estudiantes y docentes a comprender temas académicos, crear esquemas de estudio, resolver dudas y sugerir estrategias de aprendizaje.
-Adopta un tono paciente, alentador y claro. Puedes usar emojis sutiles relacionados con el aprendizaje 💡, libros 📚 o ideas ✨ si es apropiado. Evita ser demasiado informal.
-
-Idioma: Responde en el idioma proporcionado ({{language}}), a menos que el usuario solicite explícitamente un cambio en su consulta.
-
-Capacidades:
-- Explicaciones Claras: Proporciona explicaciones didácticas y adaptadas.
-- Creación de Contenido: Ayuda a generar esquemas, mapas mentales, ideas para tareas.
-- Resolución de Dudas: Responde preguntas de forma concisa y precisa.
-- Estrategias de Aprendizaje: Sugiere técnicas de estudio personalizadas.
-- Guía, No Resuelvas Directamente: No des respuestas directas a tareas si el usuario no ha demostrado comprensión; en su lugar, guía su aprendizaje con pistas o preguntas.
-
-Generación de Imágenes:
-- Si la consulta del usuario se beneficiaría enormemente de una imagen (diagrama, mapa conceptual, comparación visual, etc.) Y (el usuario lo solicita explícitamente con palabras como 'imagen', 'dibuja', 'diagrama', 'mapa', 'visualiza' O el campo 'generateImageExplicitly' es true) O (la consulta lo implica fuertemente, ej. "muéstrame un átomo", "mapa de la revolución francesa"), entonces:
-  1. Incluye en tu respuesta principal ('mainResponse') la explicación textual.
-  2. ADEMÁS, en el campo 'imageQuerySuggestion', proporciona una consulta concisa y descriptiva (en inglés, ideal para modelos de imagen) para generar dicha imagen. Ej: "simple diagram of photosynthesis process", "concept map French Revolution causes", "diagram of a neural network". No incluyas esta consulta en la 'mainResponse'.
-- Si no es apropiado generar una imagen o el usuario no lo pidió explícitamente y no es obvio, deja 'imageQuerySuggestion' vacío.
-
-Sugerencias de Seguimiento:
-- Ofrece 2-3 sugerencias de seguimiento ('followUpSuggestions') que sean relevantes para la respuesta dada y fomenten una mayor exploración del tema. Deben ser concisas y accionables.
-
-Usuario Pregunta:
-"{{query}}"
-`,
-  config: {
-    safetySettings: [
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-    ],
-    temperature: 0.6, // Slightly less creative, more focused on educational accuracy
+// Simple knowledge base for simulated responses
+const knowledgeBase = {
+  es: {
+    "teorema de pitágoras": "El teorema de Pitágoras establece que en todo triángulo rectángulo, el cuadrado de la longitud de la hipotenusa es igual a la suma de los cuadrados de las respectivas longitudes de los catetos. Es una de las proposiciones más conocidas entre las que tienen nombre propio en la matemática. Fórmula: a² + b² = c².",
+    "fotosíntesis": "La fotosíntesis es el proceso metabólico por el cual las plantas verdes y algunas otras formas de vida convierten la energía luminosa en energía química, que luego se utiliza para alimentar las actividades celulares. Se captura dióxido de carbono y se libera oxígeno.",
+    "revolución francesa": "La Revolución Francesa fue un período de profundos cambios sociales y políticos en Francia que duró desde 1789 hasta 1799. Condujo al fin de la monarquía, el establecimiento de una república y, finalmente, al ascenso de Napoleón Bonaparte. Se caracterizó por la Declaración de los Derechos del Hombre y del Ciudadano."
   },
-});
-
-const internalStudyAssistantFlow = ai.defineFlow(
-  {
-    name: 'internalStudyAssistantFlowNovaEduConnect', // Updated name
-    inputSchema: StudyAssistantInputSchema,
-    outputSchema: StudyAssistantOutputSchema,
-  },
-  async (input): Promise<StudyAssistantOutput> => {
-    let mainAiResponseOutput: Omit<StudyAssistantOutput, 'isError'> | undefined;
-    const errorBase = { mainResponse: "", isError: true, followUpSuggestions: [] };
-
-    try {
-      console.log('[NovaFlow] Input:', input);
-      const { output } = await studyAssistantPrompt(input);
-      mainAiResponseOutput = output;
-
-      if (!mainAiResponseOutput) {
-        console.error('[NovaFlow] No output from main prompt. Check LLM response and API key validity.');
-        const errorMsg = input.language === 'es' ? 'Nova no pudo procesar tu solicitud de texto en este momento. 🌌 Parece que hay un problema de comunicación.' : "Nova couldn't process your text request at this time. 🌌 Communication issue detected.";
-        return { ...errorBase, mainResponse: errorMsg };
-      }
-
-      let imageUrl: string | undefined = undefined;
-      if (mainAiResponseOutput.imageQuerySuggestion && mainAiResponseOutput.imageQuerySuggestion.trim() !== "") {
-        try {
-          console.log(`[NovaFlow] Attempting to generate image with Google AI using query: "${mainAiResponseOutput.imageQuerySuggestion}"`);
-          const { media } = await ai.generate({
-            model: 'googleai/gemini-2.0-flash-exp',
-            prompt: mainAiResponseOutput.imageQuerySuggestion,
-            config: {
-              responseModalities: ['TEXT', 'IMAGE'],
-            },
-          });
-          imageUrl = media?.url;
-          if (imageUrl) {
-            console.log("[NovaFlow] Image generated successfully:", imageUrl.substring(0,100) + "...");
-          } else {
-            console.warn("[NovaFlow] Media response did not contain a URL for the image.");
-             mainAiResponseOutput.mainResponse += input.language === 'es' ? "\n(Nova pudo procesar tu solicitud de texto, pero la visualización no se materializó esta vez. 🖼️)" : "\n(Nova could process your text request, but the visualization didn't materialize this time. 🖼️)";
-          }
-        } catch (imgError: any) {
-          console.error('[NovaFlow] Error generating image:', imgError.message || imgError, imgError.code);
-          let errorMsg = input.language === 'es' ? "\n(Nova no pudo materializar la visualización solicitada en este momento. 🌠)" : "\n(Nova couldn't materialize the requested visualization at this time. 🌠)";
-           if (imgError.message && (imgError.message.includes('API key') || imgError.message.includes('GEMINI_API_KEY') || imgError.message.includes('GOOGLE_API_KEY')) || imgError.code === 'UNAUTHENTICATED' || imgError.code === 'PERMISSION_DENIED') {
-             errorMsg = input.language === 'es'
-              ? "\n(Error de autenticación con el servicio de imágenes. Verifica tu GOOGLE_API_KEY y sus permisos para imágenes.)"
-              : "\n(Authentication error with the image service. Please check your GOOGLE_API_KEY and its permissions for images.)";
-          } else if (imgError.message && imgError.message.toLowerCase().includes('quota')) {
-             errorMsg = input.language === 'es'
-              ? "\n(Se ha alcanzado la cuota para visualizaciones. Inténtalo más tarde. ⏳)"
-              : "\n(Quota for visualizations has been reached. Please try again later. ⏳)";
-          } else if (imgError.message && (imgError.message.toLowerCase().includes('unsupported') || imgError.message.toLowerCase().includes('model cannot be used'))) {
-            errorMsg = input.language === 'es'
-              ? "\n(El servicio de imágenes no pudo procesar esa solicitud o el modelo no está disponible. Intenta con otra idea. 🤔)"
-              : "\n(The image service couldn't process that image request or the model is unavailable. Try another idea. 🤔)";
-          }
-          mainAiResponseOutput.mainResponse += errorMsg;
-        }
-      }
-
-      return {
-        mainResponse: mainAiResponseOutput.mainResponse,
-        generatedImageUrl: imageUrl,
-        imageQuerySuggestion: mainAiResponseOutput.imageQuerySuggestion,
-        followUpSuggestions: mainAiResponseOutput.followUpSuggestions,
-        isError: false
-      };
-
-    } catch (error: any) {
-      console.error('[NovaFlow] Main flow error:', error.message || error, error.code, error.stack);
-      let responseText = "";
-      if (error.message && (error.message.includes('API key') || error.message.includes('GEMINI_API_KEY') || error.message.includes('GOOGLE_API_KEY')) || error.code === 'UNAUTHENTICATED' || error.code === 'PERMISSION_DENIED' || error.code === 'FAILED_PRECONDITION') {
-         responseText = input.language === 'es'
-            ? "Error de Configuración: La clave de acceso a la IA (GOOGLE_API_KEY) no está configurada, no es válida o no tiene permisos para Nova. Por favor, verifica tus credenciales y permisos en las variables de entorno y en Google Cloud Console. 🔑"
-            : "Configuration Error: The AI access key (GOOGLE_API_KEY) is not configured, is invalid, or lacks permissions for Nova. Please check your credentials and permissions in the environment variables and Google Cloud Console. 🔑";
-      } else if (error.message && error.message.toLowerCase().includes('quota')) {
-         responseText = input.language === 'es'
-            ? "Límite Alcanzado: Se ha alcanzado la cuota para el servicio de IA de Nova. Por favor, inténtalo más tarde. ⏳"
-            : "Limit Reached: The quota for Nova's AI service has been reached. Please try again later. ⏳";
-      } else if (error.message && error.message.toLowerCase().includes('unsupported content')) {
-        responseText = input.language === 'es'
-            ? "Contenido No Soportado: Nova no pudo procesar parte de tu solicitud. Intenta reformular. ⚙️"
-            : "Unsupported Content: Nova couldn't process part of your request. Try rephrasing. ⚙️";
-      }
-       else {
-        responseText = input.language === 'es' ? 'Error Inesperado: Nova tuvo un error al procesar tu solicitud con el servicio de IA. 💫' : 'Unexpected Error: Nova encountered an error while processing your request with the AI service. 💫';
-      }
-      return { ...errorBase, mainResponse: responseText };
-    }
+  en: {
+    "pythagorean theorem": "The Pythagorean theorem states that in any right-angled triangle, the square of the length of the hypotenuse is equal to the sum of the squares of the respective lengths of the legs. It is one of the best-known propositions among those that have their own name in mathematics. Formula: a² + b² = c².",
+    "photosynthesis": "Photosynthesis is the metabolic process by which green plants and some other life forms convert light energy into chemical energy, which is then used to fuel cellular activities. Carbon dioxide is captured and oxygen is released.",
+    "french revolution": "The French Revolution was a period of profound social and political upheaval in France that lasted from 1789 to 1799. It led to the end of the monarchy, the establishment of a republic, and ultimately to the rise of Napoleon Bonaparte. It was characterized by the Declaration of the Rights of Man and of the Citizen."
   }
-);
+};
+
 
 export async function askStudyAssistant(input: StudyAssistantInput): Promise<StudyAssistantOutput> {
-  return internalStudyAssistantFlow(input);
+  const { query, language, generateImageExplicitly } = input;
+  const lowerQuery = query.toLowerCase();
+
+  let mainResponse = "";
+  let generatedImageUrl: string | undefined = undefined;
+  let imageQuerySuggestion: string | undefined = undefined;
+  let followUpSuggestions: string[] = [];
+  let isError = false;
+
+  // Simulate responses based on keywords
+  const langKnowledge = knowledgeBase[language] || knowledgeBase.es;
+  let specificTopicExplained = false;
+
+  for (const topic in langKnowledge) {
+    if (lowerQuery.includes(topic)) {
+      mainResponse = langKnowledge[topic as keyof typeof langKnowledge];
+      followUpSuggestions = language === 'es' ? [`¿Puedes darme un ejemplo sobre "${topic}"?`, `¿Qué importancia tiene "${topic}"?`] : [`Can you give an example about "${topic}"?`, `What is the importance of "${topic}"?`];
+      specificTopicExplained = true;
+      break;
+    }
+  }
+
+  if (!specificTopicExplained) {
+    if (lowerQuery.includes("explícame") || lowerQuery.includes("explain")) {
+      const topicMatch = lowerQuery.match(/(?:explícame|explain)\s+(.+)/i);
+      const topic = topicMatch && topicMatch[1] ? topicMatch[1] : (language === 'es' ? "el tema solicitado" : "the requested topic");
+      mainResponse = language === 'es' 
+        ? `Claro, aquí tienes una explicación simulada sobre ${topic}: [Explicación detallada y didáctica simulada...]. ¿Necesitas que profundice en algún aspecto o que te dé un ejemplo?`
+        : `Sure, here's a simulated explanation about ${topic}: [Detailed and didactic simulated explanation...]. Do you need me to elaborate on any aspect or give you an example?`;
+      followUpSuggestions = language === 'es' ? [`¿Puedes darme un ejemplo de ${topic}?`, `¿Qué aplicaciones tiene ${topic}?`] : [`Can you give me an example of ${topic}?`, `What are the applications of ${topic}?`];
+    } else if (lowerQuery.includes("plan de estudio") || lowerQuery.includes("study plan") || lowerQuery.includes("estrategias") || lowerQuery.includes("strategies")) {
+      mainResponse = language === 'es'
+        ? "Aquí tienes algunas estrategias de estudio simuladas que podrían ayudarte: 1. Técnica Pomodoro. 2. Mapas mentales. 3. Enseñanza activa a otros. ¿Quieres que detalle alguna?"
+        : "Here are some simulated study strategies that might help you: 1. Pomodoro Technique. 2. Mind Maps. 3. Actively teach others. Would you like me to detail any of these?";
+      followUpSuggestions = language === 'es' ? ["Detalla la técnica Pomodoro.", "¿Cómo hago un mapa mental efectivo?"] : ["Detail the Pomodoro Technique.", "How do I make an effective mind map?"];
+    } else if (lowerQuery.includes("hola") || lowerQuery.includes("hello") || lowerQuery.includes("hi")) {
+       mainResponse = language === 'es' 
+          ? "¡Hola! Soy Nova ✨, tu Asistente de Estudio IA (Simulado) de DarkAIschool. ¿En qué puedo ayudarte hoy?" 
+          : "Hi! I'm Nova ✨, your DarkAIschool AI Study Assistant (Simulated). How can I help you today?";
+    } else {
+      mainResponse = language === 'es' 
+        ? `He recibido tu consulta: "${query}". Estoy aquí para ayudarte (simuladamente). ¿Podrías ser más específico sobre lo que necesitas?`
+        : `I've received your query: "${query}". I'm here to help you (simulated). Could you be more specific about what you need?`;
+      followUpSuggestions = language === 'es' ? ["¿Puedes explicarme un tema?", "¿Necesito un plan de estudio para X."]: ["Can you explain a topic to me?", "I need a study plan for X."];
+    }
+  }
+  
+  if (generateImageExplicitly || lowerQuery.includes("imagen") || lowerQuery.includes("diagrama") || lowerQuery.includes("mapa") || lowerQuery.includes("visual") || lowerQuery.includes("picture") || lowerQuery.includes("diagram") || lowerQuery.includes("map")) {
+    const imageTopicMatch = lowerQuery.match(/(?:imagen de|diagrama de|mapa de|visual de|picture of|diagram of|map of)\s+(.+)/i);
+    const imageTopic = imageTopicMatch && imageTopicMatch[1] ? imageTopicMatch[1] : "concepto";
+    imageQuerySuggestion = imageTopic;
+    
+    if (!specificTopicExplained && !mainResponse.toLowerCase().includes("imagen")) { // Add image related text if not already present
+        mainResponse += language === 'es' 
+        ? "\n\n¡Entendido! Aquí tienes una visualización simulada para ayudarte a comprender mejor."
+        : "\n\nGot it! Here's a simulated visualization to help you understand better.";
+    }
+    generatedImageUrl = `https://placehold.co/600x400.png?text=${encodeURIComponent(imageTopic.substring(0,50))}`; // Placeholder image
+    followUpSuggestions = language === 'es' ? ["Explícame esta imagen.", "¿Podemos hacerla más simple?"] : ["Explain this image to me.", "Can we make it simpler?"];
+  }
+
+  // Simulate language switch request
+  if (lowerQuery.includes("en inglés") || lowerQuery.includes("in english")) {
+    mainResponse = `Okay, switching to English (simulated): ${mainResponse.replace(/\[.+?\]/g, '[Simulated content in English...].')}`;
+  } else if (lowerQuery.includes("en español") || lowerQuery.includes("in spanish")) {
+     mainResponse = `De acuerdo, cambiando a español (simulado): ${mainResponse.replace(/\[.+?\]/g, '[Contenido simulado en español...].')}`;
+  }
+
+  // Simulate a delay
+  return new Promise(resolve => {
+    setTimeout(() => {
+      resolve({
+        mainResponse,
+        generatedImageUrl,
+        imageQuerySuggestion,
+        followUpSuggestions: followUpSuggestions.length > 0 ? followUpSuggestions : undefined,
+        isError,
+      });
+    }, SIMULATED_RESPONSE_DELAY_MS);
+  });
 }
