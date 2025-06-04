@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sparkles, Send, User, Bot, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import NextImage from 'next/image';
-import { askStudyAssistant, type StudyAssistantInput, type StudyAssistantOutput } from '@/ai/flows/study-assistant-flow';
+import { askStudyAssistant, type StudyAssistantInput, type StudyAssistantOutput } from '@/lib/study-assistant-simulation';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton'; // Skeleton was not used, but kept in imports
 import { Avatar } from '@/components/ui/avatar';
@@ -55,7 +55,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
   const getWelcomeMessage = useCallback((lang: 'es' | 'en'): Message => ({
     id: `nova-welcome-${lang}`, // Stable ID using only lang
     type: 'assistant',
-    text: lang === 'es' ? '¡Hola! Soy Nova 🚀, tu Asistente de Estudio IA en DarkAIschool. ¿En qué aventura de aprendizaje nos embarcamos hoy?' : "Hi! I'm Nova 🚀, your DarkAIschool AI Study Assistant. What learning adventure are we embarking on today?",
+    text: lang === 'es' ? '¡Hola! Soy Nova 🚀, tu Asistente de Estudio IA en EduConnect. ¿En qué aventura de aprendizaje nos embarcamos hoy?' : "Hi! I'm Nova 🚀, your EduConnect AI Study Assistant. What learning adventure are we embarking on today?",
   }), []);
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
       }
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen, currentLanguage, getWelcomeMessage]);
+  }, [isOpen, currentLanguage, getWelcomeMessage, messages]); // Added messages to dependency array
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -235,6 +235,7 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
                                height={200}
                                className="rounded-md object-contain max-h-[300px] w-auto"
                                data-ai-hint={msg.imageQuery || "abstract illustration"}
+                               unoptimized // Important for static export
                              />
                            </div>
                         )}
@@ -307,5 +308,3 @@ export function StudyAssistantDialog({ currentLanguage, triggerButton }: StudyAs
     </>
   );
 }
-
-    

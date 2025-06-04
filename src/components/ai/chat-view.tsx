@@ -1,4 +1,3 @@
-
 // src/components/ai/chat-view.tsx
 "use client";
 
@@ -7,9 +6,9 @@ import type { ChatMessage } from '@/types/ai-chat';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, UserRound, Bot, AlertTriangle, MessageSquareDashed, MessageSquareText } from 'lucide-react';
+import { Send, UserRound, Bot, AlertTriangle, MessageSquareDashed } from 'lucide-react';
 import NextImage from 'next/image';
-import { askStudyAssistant, type StudyAssistantInput, type StudyAssistantOutput } from '@/ai/flows/study-assistant-flow';
+import { askStudyAssistant, type StudyAssistantInput, type StudyAssistantOutput } from '@/lib/study-assistant-simulation';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { format } from 'date-fns';
